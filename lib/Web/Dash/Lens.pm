@@ -7,7 +7,7 @@ use Future;
 use Scalar::Util qw(weaken);
 use Net::DBus;
 use Net::DBus::Reactor;
-use Net::DBus::Annotation qw(dbus_call_noreply);
+use Net::DBus::Annotation qw(dbus_call_noreply dbus_call_async);
 use Encode;
 use utf8;
 
@@ -193,13 +193,22 @@ sub description_sync {
 sub search {
     my ($self, $query_string) = @_;
     return $self->{results_object_future}->and_then(sub {
-        ## TODO: make the Search call asynchronous.
-        my ($f) = @_;
-        my ($results_object) = $f->get;
-        my ($result) = $self->{query_object}->Search($query_string, {});
-        my $seqnum = $result->{'model-seqnum'};
-        my ($swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after)
-            = $results_object->Clone();
+        my ($results_object) = shift->get;
+        my $search_method_future = Future->new;
+        $self->{query_object}->Search(dbus_call_async, $query_string, {})->set_notify(sub {
+            $search_method_future->done($results_object, shift->get_result);
+        });
+        return $search_method_future;
+    })->and_then(sub {
+        my ($results_object, $search_result) = shift->get;
+        my $seqnum = $search_result->{'model-seqnum'};
+        my $clone_method_future = Future->new;
+        $results_object->Clone(dbus_call_async)->set_notify(sub {
+            $clone_method_future->done($seqnum, shift->get_result);
+        });
+        return $clone_method_future;
+    })->and_then(sub {
+        my ($seqnum, $swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = shift->get;
         my $result_seqnum = $seqnum_before_after->[1];
         if($result_seqnum != $seqnum) {
             return Future->new->fail("Your query is somehow lost.");
