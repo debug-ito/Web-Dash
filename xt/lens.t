@@ -16,9 +16,8 @@ BEGIN {
     is($lens->description_sync, $exp_desc, "description_sync OK");
     is($lens->description_sync, $exp_desc, "description_sync OK again");
 
-    $lens->global_search("term");
-    use Net::DBus::Reactor;
-    Net::DBus::Reactor->main->run;
+    diag(explain $lens->search_sync("hoge"));
+    fail("todo: test searching with the same query repeatedly.");
 }
 
 done_testing();
