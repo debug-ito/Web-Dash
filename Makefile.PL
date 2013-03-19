@@ -41,6 +41,5 @@ requires (
     'Twiggy' => 0,
 );
 
-install_as_cpan;
-auto_install;
+## install_as_cpan;
 WriteAll;
