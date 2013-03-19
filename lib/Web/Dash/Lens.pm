@@ -21,7 +21,6 @@ sub new {
         query_object => undef,
         results_object_future => Future->new,
         description_future => Future->new,
-        search_results => {},
     }, $class;
     $self->_init_bus(defined $args{bus_address} ? $args{bus_address} : ':session');
     $self->_init_service(@args{qw(lens_file service_name object_name)});
@@ -41,25 +40,6 @@ sub new {
                     ->get_object($object_results, 'com.canonical.Dee.Model')
             );
         });
-        $self->{results_object_future}->on_done(sub {
-            my ($dbus_obj) = @_;
-            printf STDERR ("results object: %s %s\n", $dbus_obj->get_service->get_service_name, $dbus_obj->get_object_path);
-            $dbus_obj->connect_to_signal('Commit', sub {
-                my ($swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = @_;
-                use Data::Dumper;
-                warn "search results: ";
-                warn Dumper @_;
-                my $valid_results = _extract_valid_results($schema, $row_data);
-                my $seqnum = $seqnum_before_after->[1];
-                if(not defined $self->{search_results}{$seqnum}) {
-                    $self->{search_results}{$seqnum} = Future->new;
-                }
-                $self->{search_results}{$seqnum}->done(@$valid_results);
-                
-                ## how to erase old results Future?
-                
-            });
-        });
     }
     $self->{query_object}->InfoRequest(dbus_call_noreply);
     return $self;
@@ -74,6 +54,23 @@ sub _extract_valid_results {
     return [] if !$field_num;
     my @result = grep { @$_ == $field_num } @$row_data;
     return \@result;
+}
+
+sub _result_array_to_hash {
+    my ($raw_result_array) = @_;
+    my %map = (
+        0 => 'unity_id',
+        1 => 'thumbnail_str',
+        2 => 'flag',
+        3 => 'mime_type',
+        4 => 'name',
+        5 => 'description',
+        6 => 'uri'
+    );
+    my $desired_size = int(keys %map);
+    my $size = @$raw_result_array;
+    croak "size of result array is $size, not $desired_size." if $size != $desired_size;
+    return +{ map { $map{$_} => $raw_result_array->[$_] } keys %map };
 }
 
 sub _init_bus {
@@ -173,11 +170,17 @@ sub _wait_on {
         return $future->get;
     }
     my @result;
+    my $exception;
     $future->on_done(sub {
         @result = @_;
         $self->{reactor}->shutdown;
     });
+    $future->on_fail(sub {
+        $exception = shift;
+        $self->{reactor}->shutdown;
+    });
     $self->{reactor}->run;
+    die $exception if defined $exception;
     return @result;
 }
 
@@ -191,11 +194,18 @@ sub search {
     my ($self, $query_string) = @_;
     return $self->{results_object_future}->and_then(sub {
         ## TODO: make the Search call asynchronous.
-        warn "Search called";
+        my ($f) = @_;
+        my ($results_object) = $f->get;
         my ($result) = $self->{query_object}->Search($query_string, {});
         my $seqnum = $result->{'model-seqnum'};
-        warn "seqnum: $seqnum";
-        return ($self->{search_results}{$seqnum} ||= Future->new);
+        my ($swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after)
+            = $results_object->Clone();
+        my $result_seqnum = $seqnum_before_after->[1];
+        if($result_seqnum != $seqnum) {
+            return Future->new->fail("Your query is somehow lost.");
+        }
+        my $valid_results = [ map { _result_array_to_hash($_) } @{_extract_valid_results($schema, $row_data)} ];
+        return Future->new->done(@$valid_results);
     });
 }
 

@@ -31,7 +31,7 @@ build_requires (
 requires (
     'Carp' => 0,
     'Try::Tiny' => 0,
-    'Future' => 0,
+    'Future' => '0.07',
     'Scalar::Util' => '1.20',
     'Net::DBus' => '1.0',
     'Encode' => 0,
