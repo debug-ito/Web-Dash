@@ -19,7 +19,7 @@ sub new {
         object_name => undef,
         bus => undef,
         query_object => undef,
-        global_results_object_future => Future->new,
+        results_object_future => Future->new,
         description_future => Future->new,
         search_results => {},
     }, $class;
@@ -35,53 +35,46 @@ sub new {
                 $service_results, $service_global_results, $service_categories, $service_filters) = @$result_arrayref;
             $self->{query_object}->disconnect_from_signal('Changed', $sigid);
             $self->{description_future}->done(Encode::decode('utf8', $desc));
-            my $object_global_results = _results_object_name($service_global_results);
-            $self->{global_results_object_future}->done(
-                $self->{bus}->get_service($service_global_results)
-                    ->get_object($object_global_results, 'com.canonical.Dee.Model')
+            my $object_results = _results_object_name($service_results);
+            $self->{results_object_future}->done(
+                $self->{bus}->get_service($service_results)
+                    ->get_object($object_results, 'com.canonical.Dee.Model')
             );
         });
-        $self->{global_results_object_future}->on_done(sub {
+        $self->{results_object_future}->on_done(sub {
             my ($dbus_obj) = @_;
+            printf STDERR ("results object: %s %s\n", $dbus_obj->get_service->get_service_name, $dbus_obj->get_object_path);
             $dbus_obj->connect_to_signal('Commit', sub {
                 my ($swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = @_;
                 use Data::Dumper;
+                warn "search results: ";
                 warn Dumper @_;
-                このへんから。検索結果をsearch_resultsにつっこむ。
+                my $valid_results = _extract_valid_results($schema, $row_data);
+                my $seqnum = $seqnum_before_after->[1];
+                if(not defined $self->{search_results}{$seqnum}) {
+                    $self->{search_results}{$seqnum} = Future->new;
+                }
+                $self->{search_results}{$seqnum}->done(@$valid_results);
+                
+                ## how to erase old results Future?
+                
             });
         });
     }
     $self->{query_object}->InfoRequest(dbus_call_noreply);
-    ## $self->{service} = $bus->get_service($service_name);
-    ## 
-    ## foreach my $path (@{$self->_object_paths()}) {
-    ##     if($path =~ /GlobalResults$/) {
-    ##         ## シグナルオブジェクトはChangedシグナルからとるんじゃね。つか、シグナルオブジェクトのサービスバスがそもそも違う場合がある？
-    ##         ## いや、単にGlobalResultsで終わるオブジェクトが複数あって混乱したからかもしれない。
-    ##         $self->{signal_object} = $self->{service}->get_object($path, 'com.canonical.Dee.Model');
-    ##     }elsif(not defined $self->{query_object}) {
-    ##         ## ** Probably we have to use "try".
-    ##         $self->{query_object} = $self->{service}->get_object($path, 'com.canonical.Unity.Lens');
-    ##         try {
-    ##             $self->{query_object}->InfoRequest;
-    ##         }catch {
-    ##             $self->{query_object} = undef;
-    ##         };
-    ##     }
-    ## }
-    ## {
-    ##     weaken (my $self = $self);
-    ##     $self->{signal_object}->connect_to_signal('Commit', sub {
-    ##         $self->_handle_signal_results(@_);
-    ##     });
-    ## }
-    ## print("query_object: ", $self->{query_object}->get_object_path, "\n");
-    ## print("signal_object: ", $self->{signal_object}->get_object_path, "\n");
     return $self;
 }
 
 sub service_name { shift->{service_name} }
 sub object_name  { shift->{object_name} }
+
+sub _extract_valid_results {
+    my ($schema, $row_data) = @_;
+    my $field_num = int(@$schema);
+    return [] if !$field_num;
+    my @result = grep { @$_ == $field_num } @$row_data;
+    return \@result;
+}
 
 sub _init_bus {
     my ($self, $bus_address) = @_;
@@ -194,19 +187,21 @@ sub description_sync {
     return $desc;
 }
 
-sub global_search {
+sub search {
     my ($self, $query_string) = @_;
-    return $self->{global_results_object_future}->and_then(sub {
-        ## TODO: make the GlobalSearch call asynchronous.
-        my ($result) = $self->{query_object}->GlobalSearch($query_string, {});
+    return $self->{results_object_future}->and_then(sub {
+        ## TODO: make the Search call asynchronous.
+        warn "Search called";
+        my ($result) = $self->{query_object}->Search($query_string, {});
         my $seqnum = $result->{'model-seqnum'};
+        warn "seqnum: $seqnum";
         return ($self->{search_results}{$seqnum} ||= Future->new);
     });
 }
 
-sub global_search_sync {
+sub search_sync {
     my ($self, $query_string) = @_;
-    return $self->_wait_on($self->global_search($query_string));
+    return $self->_wait_on($self->search($query_string));
 }
 
 our $VERSION = '0.01';
@@ -226,14 +221,14 @@ Web::Dash::Lens - Unity Lens object
     my $lens = Web::Dash::Lens->new(lens_file => '/usr/share/unity/lenses/applications/applications.lens');
     
     ## Synchronous query
-    my @search_results = $lens->global_search_sync("term");
+    my @search_results = $lens->search_sync("term");
     do_something_on_results(@search_results);
     
     ## Asynchronous query
     use Future;
     use Net::DBus::Reactor;
     
-    $lens->global_search("term")->on_done(sub {
+    $lens->search("term")->on_done(sub {
         my @search_results = @_;
         do_something_on_results(@search_results);
     });
@@ -290,9 +285,9 @@ Otherwise, C<bus_address> is passed to C<< Net::DBus->new() >> method.
 
 =head1 OBJECT METHODS
 
-=head2 @results = $lens->global_search_sync($query_string)
+=head2 @results = $lens->search_sync($query_string)
 
-=head2 $future = $lens->global_search($query_string)
+=head2 $future = $lens->search($query_string)
 
 =head2 $description = $lens->description_sync()
 
