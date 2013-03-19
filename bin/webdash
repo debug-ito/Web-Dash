@@ -1,0 +1,4 @@
+#!/bin/sh
+
+plackup -s Twiggy -MWeb::Dash -e 'Web::Dash->new->to_app'
+
