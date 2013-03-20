@@ -43,6 +43,7 @@ requires (
     'Twiggy' => 0,
     'Text::Xslate' => "1.6",
     'File::Spec' => '3.3',
+    'Try::Tiny' => 0,
 );
 
 ## install_as_cpan;

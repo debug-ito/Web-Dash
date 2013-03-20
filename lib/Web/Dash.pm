@@ -10,6 +10,8 @@ use File::Spec;
 use Encode;
 use Future 0.07;
 use AnyEvent::DBus 0.31;
+use JSON qw(to_json);
+use Try::Tiny;
 
 my $index_page = <<EOD;
 <!DOCTYPE html>
@@ -76,6 +78,41 @@ sub _render_index {
     };
 }
 
+sub _json_response {
+    my ($response_object, $code) = @_;
+    if(!defined($code)) {
+        $code = $response_object->{error} ? 500 : 200;
+    }
+    return [
+        $code, ['Content-Type', 'application/json; charset=utf8'],
+        [to_json($response_object, {ascii => 1})]
+    ];
+}
+
+sub _render_search {
+    my ($self, $req) = @_;
+    return sub {
+        my $responder = shift;
+        my $lens_index = $req->query_parameters->{lens} || 0;
+        my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
+        try {
+            if(not defined $self->{lenses}[$lens_index]) {
+                die "lens param must be between 0 - " . (@{$self->{lenses}} - 1);
+            }
+            $self->{lenses}[$lens_index]->search($query_string)->on_done(sub {
+                my @results = @_;
+                $responder->(_json_response({error => undef, results => \@results}), 200);
+            })->on_fail(sub {
+                my $e = shift;
+                $responder->(_json_response({error => "search error: $e"}), 500);
+            });
+        }catch {
+            my $e = shift;
+            $responder->(_json_response({error => $e}, 500));
+        };
+    };
+}
+
 sub to_app {
     my $self = shift;
     return sub {
@@ -83,6 +120,8 @@ sub to_app {
         my $req = Plack::Request->new($env);
         if($req->path eq '/') {
             return $self->_render_index($req);
+        }elsif($req->path eq '/search.json') {
+            return $self->_render_search($req);
         }else {
             return [404, ['Content-Type', 'text/plain'], ['Not Found']];
         }
