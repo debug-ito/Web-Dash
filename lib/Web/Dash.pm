@@ -109,6 +109,8 @@ $(function() {
             data: { lens: lens_index, q: query_string },
             dataType: "json",
             type: 'GET',
+        }).then(null, function(jqxhr, text_status, error_thrown) {
+            return $.Deferred().reject("ajax error: " + text_status + ", " + error_thrown);
         });
     };
     var SimpleSpinner = function(sel) {
