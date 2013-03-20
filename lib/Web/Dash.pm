@@ -408,6 +408,28 @@ Web::Dash - Unity Dash from Web browsers (experimental)
 
 =head1 SYNOPSIS
 
+In your app.psgi file.
+
+    use Web::Dash;
+    
+    Web::Dash->new(lenses_dir => '/your/personal/lenses/directory')->to_app;
+
+Or, if you want to select lenses...
+
+    use Web::Dash;
+    use Web::Dash::Lens;
+
+    my @lenses;
+    foreach my $lens_file (
+        'extras-unity-lens-github', 'video'
+    ) {
+        push(@lenses, Web::Dash::Lens->new(
+            lens_file => "/usr/share/unity/lenses/$lens_file/$lens_file.lens"
+        ));
+    }
+    Web::Dash->new(lenses => \@lenses)->to_app;
+
+
 =head1 CLASS METHODS
 
 =head2 $dash = Web::Dash->new(%args)
@@ -434,7 +456,7 @@ If this option is specified, C<lenses_dir> option is ignored.
 
 =head1 OBJECT METHODS
 
-=item $psgi_app = $dash->to_app()
+=head2 $psgi_app = $dash->to_app()
 
 Creates a L<PSGI> application from the C<$dash>.
 
