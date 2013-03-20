@@ -19,7 +19,7 @@ my $index_page = <<'EOD';
   <head><title>Web Dash</title></head>
   <body>
     <div>
-      <input id="query" type="text" />
+      <input id="query" type="text" autofocus autocomplete="off" />
       <span id="spinner"></span>
     </div>
     <div id="lens-selector">
