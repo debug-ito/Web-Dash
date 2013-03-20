@@ -33,9 +33,10 @@ ul {
 
 li {
     padding: 3px 4px;
-    border-color: #999;
-    border-width: 0 0 1px 0;
-    border-style: solid;
+    margin: 3px;
+    border-width: 0;
+    border-radius: 3px;
+    background-color: #f4f6ff;
 }
 
 #lens-selector {
@@ -45,6 +46,14 @@ li {
 
 #results {
     margin: 0 10px 0 210px;
+}
+
+.search-result-hint {
+    background-color: #dcffaf;
+}
+
+.search-result-error {
+    background-color: #ffafc2;
 }
 
     </style>
