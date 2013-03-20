@@ -44,6 +44,7 @@ requires (
     'Text::Xslate' => "1.6",
     'File::Spec' => '3.3',
     'Try::Tiny' => 0,
+    'Async::Queue' => '0.02',
 );
 
 ## install_as_cpan;

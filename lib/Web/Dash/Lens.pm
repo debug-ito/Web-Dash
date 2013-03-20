@@ -9,6 +9,7 @@ use Net::DBus;
 use Net::DBus::Reactor;
 use Net::DBus::Annotation qw(dbus_call_noreply dbus_call_async);
 use Encode;
+use Async::Queue 0.02;
 use utf8;
 
 sub new {
@@ -21,7 +22,9 @@ sub new {
         query_object => undef,
         results_object_future => Future->new,
         description_future => Future->new,
+        request_queue => undef,
     }, $class;
+    $self->_init_queue($args{concurrency});
     $self->_init_bus(defined $args{bus_address} ? $args{bus_address} : ':session');
     $self->_init_service(@args{qw(lens_file service_name object_name)});
     $self->{query_object} =
@@ -156,33 +159,50 @@ sub description_sync {
     return $desc;
 }
 
+sub _init_queue {
+    my ($self, $concurrency) = @_;
+    weaken $self;
+    $self->{request_queue} = Async::Queue->new(
+        concurrency => $concurrency,
+        worker => sub {
+            my ($task, $queue_done) = @_;
+            my ($query_string, $final_future) = @$task;
+            $self->{results_object_future}->and_then(sub {
+                my ($results_object) = shift->get;
+                my $search_method_future = Future->new;
+                $self->{query_object}->Search(dbus_call_async, $query_string, {})->set_notify(sub {
+                    $search_method_future->done($results_object, shift->get_result);
+                });
+                return $search_method_future;
+            })->and_then(sub {
+                my ($results_object, $search_result) = shift->get;
+                my $seqnum = $search_result->{'model-seqnum'};
+                my $clone_method_future = Future->new;
+                $results_object->Clone(dbus_call_async)->set_notify(sub {
+                    $clone_method_future->done($seqnum, shift->get_result);
+                });
+                return $clone_method_future;
+            })->on_ready(sub {
+                my ($seqnum, $swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = shift->get;
+                my $result_seqnum = $seqnum_before_after->[1];
+                if($result_seqnum != $seqnum) {
+                    $final_future->fail("Your query is somehow lost.");
+                    $queue_done->();
+                    return;
+                }
+                my $valid_results = [ map { _result_array_to_hash($_) } @{_extract_valid_results($schema, $row_data)} ];
+                $final_future->done(@$valid_results);
+                $queue_done->();
+            });
+        }
+    );
+}
+
 sub search {
     my ($self, $query_string) = @_;
-    weaken $self;
-    return $self->{results_object_future}->and_then(sub {
-        my ($results_object) = shift->get;
-        my $search_method_future = Future->new;
-        $self->{query_object}->Search(dbus_call_async, $query_string, {})->set_notify(sub {
-            $search_method_future->done($results_object, shift->get_result);
-        });
-        return $search_method_future;
-    })->and_then(sub {
-        my ($results_object, $search_result) = shift->get;
-        my $seqnum = $search_result->{'model-seqnum'};
-        my $clone_method_future = Future->new;
-        $results_object->Clone(dbus_call_async)->set_notify(sub {
-            $clone_method_future->done($seqnum, shift->get_result);
-        });
-        return $clone_method_future;
-    })->and_then(sub {
-        my ($seqnum, $swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = shift->get;
-        my $result_seqnum = $seqnum_before_after->[1];
-        if($result_seqnum != $seqnum) {
-            return Future->new->fail("Your query is somehow lost.");
-        }
-        my $valid_results = [ map { _result_array_to_hash($_) } @{_extract_valid_results($schema, $row_data)} ];
-        return Future->new->done(@$valid_results);
-    });
+    my $outer_future = Future->new;
+    $self->{request_queue}->push([$query_string, $outer_future]);
+    return $outer_future;
 }
 
 sub search_sync {
@@ -287,6 +307,15 @@ The DBus bus address where this module searches for the lens service.
 If C<bus_address> is ":session", the session bus will be used.
 If C<bus_address> is ":system", the system bus will be used.
 Otherwise, C<bus_address> is passed to C<< Net::DBus->new() >> method.
+
+=item C<concurrency> => CONCURRENCY_NUM (optional, default: 1)
+
+The maximum number of asynchronous search queries that the lens handles simultaneously.
+
+If you call searching methods more than this value before any of the requests is complete,
+the extra requests are queued in the lens and processed later.
+
+Setting C<concurrency> to 0 means there is no concurrency limit.
 
 =back
 
