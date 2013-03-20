@@ -70,7 +70,7 @@ sub _result_array_to_hash {
     my $desired_size = int(keys %map);
     my $size = @$raw_result_array;
     croak "size of result array is $size, not $desired_size." if $size != $desired_size;
-    return +{ map { $map{$_} => $raw_result_array->[$_] } keys %map };
+    return +{ map { $map{$_} => Encode::decode('utf8', $raw_result_array->[$_]) } keys %map };
 }
 
 sub _init_bus {
