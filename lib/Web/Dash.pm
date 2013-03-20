@@ -13,15 +13,16 @@ use AnyEvent::DBus 0.31;
 use JSON qw(to_json);
 use Try::Tiny;
 
-my $index_page = <<EOD;
+my $index_page = <<'EOD';
 <!DOCTYPE html>
 <html>
   <head><title>Web Dash</title></head>
   <body>
     <div>
       <input id="query" type="text" />
+      <input id="submit" type="button" value="submit" />
     </div>
-    <div>
+    <div id="lens-selector">
       [% FOREACH desc in descriptions %]
         <label>
           <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] checked [% END %] />
@@ -31,7 +32,54 @@ my $index_page = <<EOD;
     </div>
     <ul id="results">
     </ul>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script type="text/javascript">
+$(function() {
+    var executeSearch = function(lens_index, query_string) {
+        return $.ajax({
+            url: "/search.json",
+            data: { lens: lens_index, q: query_string },
+            dataType: "json",
+            type: 'GET',
+        });
+    };
+    var results_manager = {
+        sel: '#results',
+        showError: function(error) {
+            var $list = $(this.sel);
+            $('<li class="search-result-error"></li>').text(error).appendTo($list);
+        },
+        show: function(results) {
+            var $list = $(this.sel);
+            $list.empty();
+            $.each(results, function(i, result) {
+                if(result.name === "") return true;
+                var $li = $('<li class="search-result"></li>');
+                var $target = $li;
+                if(result.uri !== "") {
+                    $target = $('<a></a>').attr('href', result.uri).appendTo($target);
+                }
+                $('<span class="search-result-name"></span>').text(result.name).appendTo($target);
+                $('<span class="search-result-desc"></span>').text(result.description).appendTo($target);
+                $list.append($li);
+            });
+        },
+    };
+    $('#submit').on('click', function() {
+        var query_string = $('#query').val();
+        var lens_index = $('#lens-selector').find('input:checked').val();
+        // console.log('query_string: ' + query_string + ", lens_index: " + lens_index);
+        executeSearch(lens_index, query_string).then(function(result_object) {
+            if(result_object.error !== null) {
+                return $.Deferred().reject(result_object.error);
+            }
+            results_manager.show(result_object.results);
+        }).then(null, function(error) {
+            results_manager.showError(error);
+        });
+    });
+});
+    </script>
   </body>
 </html>
 EOD
@@ -47,7 +95,7 @@ sub new {
         ),
     }, $class;
     $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
-    warn "lens: " . $_->service_name foreach @{$self->{lenses}};
+    warn "lens: " . $_->service_name . "\n" foreach @{$self->{lenses}};
     return $self;
 }
 
@@ -62,13 +110,10 @@ sub _init_lenses {
 
 sub _render_index {
     my ($self, $req) = @_;
-    warn "_render_index";
     return sub {
         my ($responder) = @_;
-        warn "responder sub";
         Future->wait_all(map { $_->description } @{$self->{lenses}})->on_done(sub {
             my (@descriptions) = map { $_->get } @_;
-            warn "wait done";
             my $page = $self->{renderer}->render("index", {descriptions => \@descriptions});
             $responder->([
                 200, ['Content-Type', 'text/html; charset=utf8'],
