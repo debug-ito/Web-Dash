@@ -53,6 +53,7 @@ li {
     <div>
       <input id="query" type="text" autofocus autocomplete="off" />
       <span id="spinner"></span>
+      <span id="results-num"></span>
     </div>
     <ul id="lens-selector">
       [% FOREACH desc in descriptions %]
@@ -147,12 +148,15 @@ $(function() {
     
     var results_manager = {
         sel: '#results',
+        sel_num: '#results-num',
         showError: function(error) {
+            $(this.sel_num).empty();
             var $list = $(this.sel);
             $list.empty();
             $('<li class="search-result-error"></li>').text(error).appendTo($list);
         },
         show: function(results) {
+            $(this.sel_num).text(results.length + " result" + (results.length > 1 ? "s" : ""));
             var $list = $(this.sel);
             $list.empty();
             $.each(results, function(i, result) {
