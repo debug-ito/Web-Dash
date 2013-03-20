@@ -269,7 +269,7 @@ $(function() {
 
     
     lens_manager.onChange(function() { search_form.execute() });
-    var type_event_regulator = new EventRegulator(200, function() {
+    var type_event_regulator = new EventRegulator(500, function() {
         search_form.execute();
     });
     $('#query').on('input', function() {
