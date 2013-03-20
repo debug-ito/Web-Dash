@@ -25,7 +25,7 @@ my $index_page = <<'EOD';
     <div id="lens-selector">
       [% FOREACH desc in descriptions %]
         <label>
-          <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] checked [% END %] />
+          <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] [% END %] />
           [% desc %]
         </label>
       [% END ## FOREACH %]
@@ -135,12 +135,42 @@ $(function() {
             });
         },
     };
+    var lens_manager = {
+        lens_index: 0,
+        sel_lens_index: '#lens-selector',
+        on_change_listeners: [],
+        setLensIndex: function(new_index) {
+            var self = this;
+            var $radios = $(self.sel_lens_index).find('input');
+            var changed = (self.lens_index != new_index);
+            self.lens_index = new_index % $radios.size();
+            
+            $radios.removeAttr('checked');
+            $radios.get(self.lens_index).checked = true;
+            if(changed) {
+                $.each(self.on_change_listeners, function(i, listener) {
+                    listener(self);
+                });
+            }
+        },
+        getLensIndex: function() {
+            return this.lens_index;
+        },
+        up: function() { this.setLensIndex(this.getLensIndex() - 1) },
+        down: function() { this.setLensIndex(this.getLensIndex() + 1) },
+        onChange: function(listener) {
+            var self = this;
+            self.on_change_listeners.push(listener);
+        },
+    };
+    lens_manager.setLensIndex(0);
+    
     var search_form = {
         sel_query: '#query',
-        sel_lens_index: '#lens-selector',
+        
         execute: function() {
             var query_string = $(this.sel_query).val();
-            var lens_index = $(this.sel_lens_index).find('input:checked').val();
+            var lens_index = lens_manager.getLensIndex();
             spinner.begin();
             return executeSearch(lens_index, query_string).then(function(result_object) {
                 if(result_object.error !== null) {
@@ -157,16 +187,27 @@ $(function() {
                 spinner.end();
             });
         },
-    }
+    };
 
+    
+    lens_manager.onChange(function() { search_form.execute() });
     var type_event_regulator = new EventRegulator(200, function() {
         search_form.execute();
     });
     $('#query').on('input', function() {
         type_event_regulator.trigger();
+    }).on('keydown', function(e) {
+        switch(e.keyCode) {
+        case 38:
+            lens_manager.up();
+            break;
+        case 40:
+            lens_manager.down();
+            break;
+        }
     });
-    $('#lens-selector').on('click', 'input', function() {
-        search_form.execute();
+    $('#lens-selector').on('click', 'input', function(e) {
+        lens_manager.setLensIndex($(this).val());
     });
 });
     </script>
