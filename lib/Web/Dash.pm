@@ -20,7 +20,6 @@ my $index_page = <<'EOD';
   <body>
     <div>
       <input id="query" type="text" />
-      <input id="submit" type="button" value="submit" />
       <span id="spinner"></span>
     </div>
     <div id="lens-selector">
@@ -162,7 +161,7 @@ $(function() {
     $('#query').on('input', function() {
         type_event_regulator.trigger();
     });
-    $('#submit').on('click', function() {
+    $('#lens-selector').on('click', 'input', function() {
         search_form.execute();
     });
 });
