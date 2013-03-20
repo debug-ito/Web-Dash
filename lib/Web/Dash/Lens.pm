@@ -194,7 +194,7 @@ our $VERSION = '0.01';
 
 =head1 NAME
 
-Web::Dash::Lens - Unity Lens object
+Web::Dash::Lens - An experimental Unity Lens object
 
 =head1 VERSION
 
@@ -202,26 +202,47 @@ Web::Dash::Lens - Unity Lens object
 
 =head1 SYNOPSIS
 
+    use Web::Dash::Lens;
+    use utf8;
+    use Encode qw(encode);
+    
+    sub show_results {
+        my (@results) = @_;
+        foreach my $result (@results) {
+            print "-----------\n";
+            print encode('utf8', "$result->{name}\n");
+            print encode('utf8', "$result->{description}\n");
+            print encode('utf8', "$result->{uri}\n");
+        }
+        print "=============\n";
+    }
+    
     my $lens = Web::Dash::Lens->new(lens_file => '/usr/share/unity/lenses/applications/applications.lens');
     
-    ## Synchronous query
-    my @search_results = $lens->search_sync("term");
-    do_something_on_results(@search_results);
     
+    ## Synchronous query
+    my @search_results = $lens->search_sync("terminal");
+    show_results(@search_results);
+    
+        
     ## Asynchronous query
     use Future;
     use Net::DBus::Reactor;
-    
-    $lens->search("term")->on_done(sub {
+        
+    $lens->search("terminal")->on_done(sub {
         my @search_results = @_;
-        do_something_on_results(@search_results);
+        show_results(@search_results);
+        Net::DBus::Reactor->main->shutdown;
+    })->on_fail(sub {
+        my $e = shift;
+        warn "Error: $e";
+        Net::DBus::Reactor->main->shutdown;
     });
     Net::DBus::Reactor->main->run();
 
-
 =head1 DESCRIPTION
 
-L<Web::Dash::Lens> is a object that represents a Unity Lens.
+L<Web::Dash::Lens> is an object that represents a Unity Lens.
 
 =head1 CLASS METHOD
 
@@ -270,6 +291,27 @@ Otherwise, C<bus_address> is passed to C<< Net::DBus->new() >> method.
 =head1 OBJECT METHODS
 
 =head2 @results = $lens->search_sync($query_string)
+
+Searches with the C<$query_string> with the C<$lens>.
+C<$query_string> must be a text string, not a binary (octet) string.
+
+In success, this method returns a list of search results (C<@results>).
+Each element in C<@results> is a hash-ref containing the following key-value pairs.
+All the string values are text strings, not binary (octet) strings.
+
+=over
+
+=item C<unity_id> => STR
+
+Some kind of ID string. I guess Unity makes use of it.
+
+
+=item C<flag> => INT
+
+Some kind of integer flag. I don't know what it means.
+
+
+=back
 
 =head2 $future = $lens->search($query_string)
 
