@@ -25,6 +25,14 @@ body {
     font-size: small;
 }
 
+a, a:visited, a:active {
+    color: #302b95;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
 ul {
     list-style-type: none;
     padding: 0;
@@ -36,7 +44,7 @@ li {
     margin: 3px;
     border-width: 0;
     border-radius: 3px;
-    background-color: #f4f6ff;
+    background-color: #f6f6f6;
 }
 
 #lens-selector {
@@ -48,12 +56,29 @@ li {
     margin: 0 10px 0 210px;
 }
 
+.search-result {
+    padding-left: 10px;
+}
+
 .search-result-hint {
     background-color: #dcffaf;
+    padding-left: 10px;
 }
 
 .search-result-error {
     background-color: #ffafc2;
+    padding-left: 10px;
+}
+
+.search-result-name {
+    margin: 0;
+    padding: 0 0 5px 0;
+    font-size: normal;
+}
+
+.search-result-desc {
+    color: #505050;
+    font-size: small;
 }
 
     </style>
@@ -171,12 +196,16 @@ $(function() {
             $.each(results, function(i, result) {
                 if(result.name === "") return true;
                 var $li = $('<li class="search-result"></li>');
-                var $target = $li;
-                if(result.uri !== "") {
-                    $target = $('<a></a>').attr('href', result.uri).appendTo($target);
+                var $name = $('<h3 class="search-result-name"></h3>');
+                if(result.uri === "") {
+                    $name.text(result.name);
+                }else {
+                    $('<a></a>').attr('href', result.uri).text(result.name).appendTo($name);
                 }
-                $('<span class="search-result-name"></span>').text(result.name).appendTo($target);
-                $('<span class="search-result-desc"></span>').text(result.description).appendTo($target);
+                $li.append($name);
+                if(result.description !== "") {
+                    $('<div class="search-result-desc"></span>').text(result.description).appendTo($li);
+                }
                 $list.append($li);
             });
         },
