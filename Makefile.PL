@@ -35,11 +35,14 @@ requires (
     'Future' => '0.07',
     'Scalar::Util' => '1.20',
     'Net::DBus' => '1.0',
+    'AnyEvent::DBus' => '0.31',
     'Encode' => 0,
     'File::Find' => 0,
     'Plack' => 0,
     'Plack::Request' => 0,
     'Twiggy' => 0,
+    'Text::Xslate' => "1.6",
+    'File::Spec' => '3.3',
 );
 
 ## install_as_cpan;

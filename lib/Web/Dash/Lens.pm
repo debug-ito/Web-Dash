@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp;
 use Try::Tiny;
-use Future;
+use Future 0.07;
 use Scalar::Util qw(weaken);
 use Net::DBus;
 use Net::DBus::Reactor;

@@ -4,14 +4,29 @@ use strict;
 use warnings;
 use Plack::Request;
 use File::Find ();
-## use Web::Dash::Lens;
+use Web::Dash::Lens;
+use Text::Xslate;
+use File::Spec;
+use Encode;
+use Future 0.07;
+use AnyEvent::DBus 0.31;
 
 my $index_page = <<EOD;
 <!DOCTYPE html>
 <html>
   <head><title>Web Dash</title></head>
   <body>
-    <input id="query" type="text" />
+    <div>
+      <input id="query" type="text" />
+    </div>
+    <div>
+      [% FOREACH desc in descriptions %]
+        <label>
+          <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] checked [% END %] />
+          [% desc %]
+        </label>
+      [% END ## FOREACH %]
+    </div>
     <ul id="results">
     </ul>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
@@ -23,8 +38,14 @@ sub new {
     my ($class, %args) = @_;
     my $self = bless {
         lenses => [],
+        renderer => Text::Xslate->new(
+            path => [{index => $index_page}],
+            cache_dir => File::Spec->tmpdir,
+            syntax => 'TTerse',
+        ),
     }, $class;
     $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
+    warn "lens: " . $_->service_name foreach @{$self->{lenses}};
     return $self;
 }
 
@@ -32,17 +53,36 @@ sub _init_lenses {
     my ($self, @search_dirs) = @_;
     File::Find::find(sub {
         my $filepath = $File::Find::name;
-        return if $filepath =~ /\.lens$/;
-        ## push(@{$self->{lenses}}, Web::Dash::Lens->new(lens_file => $filepath));
+        return if $filepath !~ /\.lens$/;
+        push(@{$self->{lenses}}, Web::Dash::Lens->new(lens_file => $filepath));
     }, @search_dirs);
 }
 
+sub _render_index {
+    my ($self, $req) = @_;
+    warn "_render_index";
+    return sub {
+        my ($responder) = @_;
+        warn "responder sub";
+        Future->wait_all(map { $_->description } @{$self->{lenses}})->on_done(sub {
+            my (@descriptions) = map { $_->get } @_;
+            warn "wait done";
+            my $page = $self->{renderer}->render("index", {descriptions => \@descriptions});
+            $responder->([
+                200, ['Content-Type', 'text/html; charset=utf8'],
+                [Encode::encode('utf8', $page)]
+            ]);
+        });
+    };
+}
+
 sub to_app {
+    my $self = shift;
     return sub {
         my ($env) = @_;
         my $req = Plack::Request->new($env);
         if($req->path eq '/') {
-            return [200, ['Content-Type', 'text/html'], [$index_page]];
+            return $self->_render_index($req);
         }else {
             return [404, ['Content-Type', 'text/plain'], ['Not Found']];
         }
