@@ -116,6 +116,7 @@ $(function() {
         sel: '#results',
         showError: function(error) {
             var $list = $(this.sel);
+            $list.empty();
             $('<li class="search-result-error"></li>').text(error).appendTo($list);
         },
         show: function(results) {
@@ -144,6 +145,9 @@ $(function() {
             return executeSearch(lens_index, query_string).then(function(result_object) {
                 if(result_object.error !== null) {
                     return $.Deferred().reject(result_object.error);
+                }
+                if(result_object.results.length === 0) {
+                    return $.Deferred().reject("No result for query '" + query_string + "'");
                 }
                 results_manager.show(result_object.results);
             }).then(null, function(error) {
