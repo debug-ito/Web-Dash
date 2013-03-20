@@ -156,6 +156,7 @@ sub description_sync {
 
 sub search {
     my ($self, $query_string) = @_;
+    weaken $self;
     return $self->{results_object_future}->and_then(sub {
         my ($results_object) = shift->get;
         my $search_method_future = Future->new;
