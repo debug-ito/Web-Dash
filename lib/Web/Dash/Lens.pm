@@ -376,6 +376,7 @@ In failure, C<$future> will be rejected. You can obtain the exception by C<< $fu
 =head2 $description = $lens->description_sync()
 
 Returns the description of the C<$lens>.
+C<$description> is a text string, not a binary (or octet) string.
 
 =head2 $future = $lens->description()
 

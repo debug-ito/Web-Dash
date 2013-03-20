@@ -398,11 +398,54 @@ Web::Dash - Unity Dash from Web browsers (experimental)
 
 =head1 DESCRIPTION
 
+L<Web::Dash> is a Web application version of Unity Dash.
+Unity Dash is a powerful searching tool integrated in Unity desktop environment,
+which is employed by Ubuntu Linux.
+
+For detail of Unity, See L<https://wiki.ubuntu.com/Unity>
+
+(Hopefully) L<Web::Dash> acts like Unity Dash without the need of the whole Unity infrastructure.
+All you need is some Lenses (searching agents) and your favorite Web browser,
+and you can have the awesome searching power of Dash.
+
+=head1 CAVEAT
+
+L<Web::Dash> is quite an B<experimental> application.
+
+It is not at all based on any official specification or documentation about Unity Dash or Unity Lens.
+Instead, I analyzed the behavior of Unity Dash and Unity Lenses from outside,
+and implemented what I guess was the correct usage of them.
+See L<Web::Dash::Lens> for implementation detail.
+
+I tested L<Web::Dash> in Ubuntu 12.04 and Xubuntu 12.04.
+However it may not work as expected in other environments.
+It is also possible for L<Web::Dash> to stop working in future versions of Unity or Ubuntu.
+
+
+=head1 SCREENSHOTS
+
 =head1 TUTORIAL
 
 =head2 Installation
 
+To install L<Web::Dash>, type
+
+    # curl -L http://cpanmin.us | perl - Web::Dash
+
+or 
+
+    # wget -O- http://cpanmin.us | perl - Web::Dash
+
+or
+
+    # cpanm Web::Dash
+
+or whatever you feel like.
+
+=head2 Installing some lenses
+
 =head2 Start webdash
+
 
 =head1 AS A MODULE
 
