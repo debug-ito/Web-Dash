@@ -16,21 +16,54 @@ use Try::Tiny;
 my $index_page = <<'EOD';
 <!DOCTYPE html>
 <html>
-  <head><title>Web Dash</title></head>
+  <head>
+    <title>Web Dash</title>
+    <style type="text/css">
+body {
+    padding: 3px 5px;
+    color: #222;
+    font-size: small;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+li {
+    padding: 3px 4px;
+    border-color: #999;
+    border-width: 0 0 1px 0;
+    border-style: solid;
+}
+
+#lens-selector {
+    width: 200px;
+    float: left;
+}
+
+#results {
+    margin: 0 10px 0 210px;
+}
+
+    </style>
+  </head>
   <body>
     <div>
       <input id="query" type="text" autofocus autocomplete="off" />
       <span id="spinner"></span>
     </div>
-    <div id="lens-selector">
+    <ul id="lens-selector">
       [% FOREACH desc in descriptions %]
-        <label>
+        <li><label>
           <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] [% END %] />
           [% desc %]
-        </label>
+        </label></li>
       [% END ## FOREACH %]
-    </div>
+    </ul>
     <ul id="results">
+      <li class="search-result-hint">Hint: You can change lens with arrow Up and Down keys.</li>
     </ul>
     <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script type="text/javascript">
@@ -48,8 +81,8 @@ $(function() {
         this.count = 0;
         this.timer = null;
         this.dot_pos = 0;
-        this.dot_length = 3;
-        this.full_length = 10;
+        this.dot_length = 4;
+        this.full_length = 12;
         this.interval_ms = 100;
     };
     SimpleSpinner.prototype = {
