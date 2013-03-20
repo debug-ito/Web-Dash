@@ -221,6 +221,7 @@ $(function() {
             var $radios = $(self.sel_lens_index).find('input');
             var changed = (self.lens_index != new_index);
             self.lens_index = new_index % $radios.size();
+            if(self.lens_index < 0) self.lens_index += $radios.size();
             
             $radios.removeAttr('checked');
             $radios.get(self.lens_index).checked = true;
