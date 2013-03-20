@@ -61,3 +61,32 @@
     - ChangedシグナルにはGlobalResultsのサービス名が含まれる。(オブジェクト名ではない)
       これでいいんじゃね？
 
+
+オブジェクトを列挙する::
+
+    sub _object_paths {
+        #### object paths enumeration
+        my ($self) = @_;
+        my $service = $self->{service};
+        my @pending_objects = ($service->get_object('/'));
+        my @paths = ();
+        while(my $obj = pop @pending_objects) {
+            try {
+                my $thispath = $obj->get_object_path;
+                push(@paths, $thispath);
+                my $xml = $obj->as_interface('org.freedesktop.DBus.Introspectable')->Introspect;
+                ## print "$xml\n";
+                my $desc = Net::DBus::Binding::Introspector->new(object_path => $thispath, xml => $xml);
+                my @children = $desc->list_children;
+                foreach my $child_path (@children) {
+                    ## print "children: $child_path\n";
+                    push(@pending_objects, $obj->get_child_object($thispath =~ m|/$| ? $child_path : "/".$child_path));
+                }
+            }catch {
+                my $e = shift;
+                carp $e;
+            };
+        }
+        return \@paths;
+    }
+
