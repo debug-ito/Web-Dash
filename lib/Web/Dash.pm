@@ -12,6 +12,7 @@ use Future 0.07;
 use AnyEvent::DBus 0.31;
 use JSON qw(to_json);
 use Try::Tiny;
+use Carp;
 
 my $index_page = <<'EOD';
 <!DOCTYPE html>
@@ -303,8 +304,12 @@ sub new {
             syntax => 'TTerse',
         ),
     }, $class;
-    $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
-    warn "lens: " . $_->service_name . "\n" foreach @{$self->{lenses}};
+    if(defined $args{lenses}) {
+        croak "lenses param must be an array-ref" if ref($args{lenses}) ne 'ARRAY';
+        $self->{lenses} = $args{lenses};
+    }else {
+        $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
+    }
     return $self;
 }
 
@@ -386,6 +391,63 @@ sub to_app {
 our $VERSION = '0.01';
 
 =pod
+
+=head1 NAME
+
+Web::Dash - Unity Dash from Web browsers (experimental)
+
+=head1 DESCRIPTION
+
+=head1 TUTORIAL
+
+=head2 Installation
+
+=head2 Start webdash
+
+=head1 AS A MODULE
+
+=head1 SYNOPSIS
+
+=head1 CLASS METHODS
+
+=head2 $dash = Web::Dash->new(%args)
+
+The constructor.
+
+Fields in C<%args> are:
+
+=over
+
+=item C<lenses_dir> => DIRECTORY_PATH (optional, default: '/usr/share/unity/lenses')
+
+Specifies the root directory path under which it searches for lens files.
+
+It loads *.lens files under this directory and creates L<Web::Dash::Lens> objects from them.
+
+=item C<lenses> => ARRAYREF_OF_LENSES (optional)
+
+Specifies an array-ref of L<Web::Dash::Lens> objects that you want to use with L<Web::Dash>.
+
+If this option is specified, C<lenses_dir> option is ignored.
+
+=back
+
+=head1 OBJECT METHODS
+
+=item $psgi_app = $dash->to_app()
+
+Creates a L<PSGI> application from the C<$dash>.
+
+=head1 SEE ALSO
+
+=over
+
+=item L<Web::Dash::Lens>
+
+An experimental Unity Lens object.
+
+=back
+
 
 =head1 LICENSE AND COPYRIGHT
 
