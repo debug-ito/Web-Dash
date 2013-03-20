@@ -155,6 +155,13 @@ $(function() {
             });
         },
     }
+
+    var type_event_regulator = new EventRegulator(200, function() {
+        search_form.execute();
+    });
+    $('#query').on('input', function() {
+        type_event_regulator.trigger();
+    });
     $('#submit').on('click', function() {
         search_form.execute();
     });
