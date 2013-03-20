@@ -60,7 +60,7 @@ sub _result_array_to_hash {
     my ($raw_result_array) = @_;
     my %map = (
         0 => 'unity_id',
-        1 => 'thumbnail_str',
+        1 => 'icon_str',
         2 => 'flag',
         3 => 'mime_type',
         4 => 'name',
@@ -292,7 +292,7 @@ Otherwise, C<bus_address> is passed to C<< Net::DBus->new() >> method.
 
 =head2 @results = $lens->search_sync($query_string)
 
-Searches with the C<$query_string> with the C<$lens>.
+Makes a search with the C<$query_string> using the C<$lens>.
 C<$query_string> must be a text string, not a binary (octet) string.
 
 In success, this method returns a list of search results (C<@results>).
@@ -305,23 +305,63 @@ All the string values are text strings, not binary (octet) strings.
 
 Some kind of ID string. I guess Unity makes use of it.
 
+=item C<icon_str> => STR
+
+A string that specifies the icon of the result entry.
 
 =item C<flag> => INT
 
 Some kind of integer flag. I don't know what it means.
 
+=item C<name> => STR
+
+The name of the result entry.
+
+=item C<description> => STR
+
+The description of the result entry.
+
+=item C<uri> => STR
+
+The URI of the result entry.
 
 =back
 
+In failure, this method throws an exception.
+
+
 =head2 $future = $lens->search($query_string)
+
+The asynchronous version of C<search_sync()> method.
+
+Instead of returning the results, this method returns a L<Future> object
+that represents the search results obtained in future.
+
+In success, C<$future> will be resolved. You can obtain the list of search results by C<< $future->get >> method.
+
+In failure, C<$future> will be rejected. You can obtain the exception by C<< $future->failure >> method.
+
 
 =head2 $description = $lens->description_sync()
 
+Returns the description of the C<$lens>.
+
 =head2 $future = $lens->description()
+
+The asynchronous version of C<description()> method.
+
+Instead of returning the results, this method returns a L<Future> object
+that represents the description obtained in future.
+
+When done, C<$future> will be resolved. You can obtain the description by C<< $future->get >> method.
 
 =head2 $service_name = $lens->service_name
 
+Returns the DBus service name of the C<$lens>.
+
 =head2 $object_name = $lens->object_name
+
+Returns the DBus object name of the C<$lens>.
 
 =head1 AUTHOR
 
