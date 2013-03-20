@@ -81,15 +81,28 @@ my @test_cases = (
 
 
 foreach my $case (@test_cases) {
-    note("--- case lens_file = $case->{lens_file}");
+    note("--- --- case lens_file = $case->{lens_file}");
     @lenses_destroyed = ();
     my $service_name = $case->{exp_service_name};
     {
+        note("--- from lens file");
         my $lens = new_ok('Web::Dash::Lens', [lens_file => $case->{lens_file}]);
         is($lens->service_name, $case->{exp_service_name}, 'service name OK');
         is($lens->object_name, $case->{exp_object_name}, 'object name OK');
         is($lens->description_sync, $case->{exp_description}, "description_sync OK");
         is($lens->description_sync, $case->{exp_description}, "description_sync OK again");
+    }
+    is(int(@lenses_destroyed), 1, "1 lens destroyed.");
+    is($lenses_destroyed[0], $service_name, "... and it's $service_name");
+
+    @lenses_destroyed = ();
+    {
+        note('--- from service_name and object_name');
+        my $lens = new_ok('Web::Dash::Lens', [
+            service_name => $case->{exp_service_name},
+            object_name => $case->{exp_object_name},
+        ]);
+        is($lens->description_sync, $case->{exp_description}, "description_sync OK");
     }
     is(int(@lenses_destroyed), 1, "1 lens destroyed.");
     is($lenses_destroyed[0], $service_name, "... and it's $service_name");
