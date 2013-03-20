@@ -123,47 +123,6 @@ sub _init_service {
     }
 }
 
-## sub _set_resolved_future {
-##     my ($future_ref_ref, $val) = @_;
-##     if(${$future_ref_ref}->is_ready) {
-##         ${$future_ref_ref} = Future->new->done($val);
-##     }else {
-##         ${$future_ref_ref}->done($val);
-##     }
-## }
-
-## sub _handle_signal_results {
-##     my ($self, @results) = @_;
-##     use Data::Dumper;
-##     print Dumper @results;
-## }
-## 
-## sub _object_paths {
-##     #### object paths enumeration
-##     my ($self) = @_;
-##     my $service = $self->{service};
-##     my @pending_objects = ($service->get_object('/'));
-##     my @paths = ();
-##     while(my $obj = pop @pending_objects) {
-##         try {
-##             my $thispath = $obj->get_object_path;
-##             push(@paths, $thispath);
-##             my $xml = $obj->as_interface('org.freedesktop.DBus.Introspectable')->Introspect;
-##             ## print "$xml\n";
-##             my $desc = Net::DBus::Binding::Introspector->new(object_path => $thispath, xml => $xml);
-##             my @children = $desc->list_children;
-##             foreach my $child_path (@children) {
-##                 ## print "children: $child_path\n";
-##                 push(@pending_objects, $obj->get_child_object($thispath =~ m|/$| ? $child_path : "/".$child_path));
-##             }
-##         }catch {
-##             my $e = shift;
-##             carp $e;
-##         };
-##     }
-##     return \@paths;
-## }
-
 sub _wait_on {
     my ($self, $future) = @_;
     if($future->is_ready) {
@@ -184,9 +143,14 @@ sub _wait_on {
     return @result;
 }
 
+sub description {
+    my ($self) = @_;
+    return $self->{description_future};
+}
+
 sub description_sync {
     my ($self) = @_;
-    my ($desc) = $self->_wait_on($self->{description_future});
+    my ($desc) = $self->_wait_on($self->description);
     return $desc;
 }
 
@@ -309,6 +273,8 @@ Otherwise, C<bus_address> is passed to C<< Net::DBus->new() >> method.
 =head2 $future = $lens->search($query_string)
 
 =head2 $description = $lens->description_sync()
+
+=head2 $future = $lens->description()
 
 =head2 $service_name = $lens->service_name
 
