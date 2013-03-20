@@ -26,6 +26,7 @@ configure_requires (
 
 build_requires (
    'Test::More' => 0,
+   'Test::MockModule' => '0.05',
 );
 
 requires (
