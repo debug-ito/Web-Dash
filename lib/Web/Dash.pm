@@ -21,6 +21,7 @@ my $index_page = <<'EOD';
     <div>
       <input id="query" type="text" />
       <input id="submit" type="button" value="submit" />
+      <span id="spinner"></span>
     </div>
     <div id="lens-selector">
       [% FOREACH desc in descriptions %]
@@ -43,6 +44,75 @@ $(function() {
             type: 'GET',
         });
     };
+    var SimpleSpinner = function(sel) {
+        this.sel = sel;
+        this.count = 0;
+        this.timer = null;
+        this.dot_pos = 0;
+        this.dot_length = 3;
+        this.full_length = 10;
+        this.interval_ms = 100;
+    };
+    SimpleSpinner.prototype = {
+        _clear: function() {
+            $(this.sel).empty();
+        },
+        _render: function() {
+            var self = this;
+            var str = "";
+            var i;
+            var dot_min = (self.dot_pos + self.dot_length) % self.full_length;
+            for(i = 0 ; i < self.full_length ; i++) {
+                if((self.dot_pos <= dot_min && i >= self.dot_pos && i < dot_min)
+                  || (self.dot_pos > dot_min && (i >= self.dot_pos || i < dot_min) )) {
+                    str += ".";
+                }else {
+                    str += "&nbsp";
+                }
+            }
+            $(self.sel).html(str);
+        },
+        _set: function(new_count) {
+            var self = this;
+            self.count = new_count;
+            if(self.count <= 0) {
+                self.count = 0;
+                if(self.timer !== null) {
+                    clearInterval(self.timer);
+                    self.timer = null;
+                }
+                self._clear();
+            }
+            if(self.count > 0 && self.timer === null) {
+                self.timer = setInterval(function() {
+                    self.dot_pos = (self.dot_pos + 1) % self.full_length;
+                    self._render();
+                }, self.interval_ms)
+            }
+        },
+        begin: function() { this._set(this.count + 1) },
+        end: function() { this._set(this.count - 1) }
+    };
+    var EventRegulator = function(wait, handler) {
+        this.wait_ms = wait;
+        this.handler = handler;
+        this.timeout_obj = null;
+    };
+    EventRegulator.prototype = {
+        trigger: function(task) {
+            var self = this;
+            if(self.timeout_obj !== null) {
+                clearTimeout(self.timeout_obj);
+            }
+            self.timeout_obj = setTimeout(function() {
+                self.handler(task);
+                self.timeout_obj = null;
+            }, self.wait_ms);
+        },
+    };
+
+    var spinner = new SimpleSpinner('#spinner');
+    
     var results_manager = {
         sel: '#results',
         showError: function(error) {
@@ -65,18 +135,28 @@ $(function() {
             });
         },
     };
+    var search_form = {
+        sel_query: '#query',
+        sel_lens_index: '#lens-selector',
+        execute: function() {
+            var query_string = $(this.sel_query).val();
+            var lens_index = $(this.sel_lens_index).find('input:checked').val();
+            spinner.begin();
+            return executeSearch(lens_index, query_string).then(function(result_object) {
+                if(result_object.error !== null) {
+                    return $.Deferred().reject(result_object.error);
+                }
+                results_manager.show(result_object.results);
+            }).then(null, function(error) {
+                results_manager.showError(error);
+                return $.Deferred().resolve();
+            }).then(function() {
+                spinner.end();
+            });
+        },
+    }
     $('#submit').on('click', function() {
-        var query_string = $('#query').val();
-        var lens_index = $('#lens-selector').find('input:checked').val();
-        // console.log('query_string: ' + query_string + ", lens_index: " + lens_index);
-        executeSearch(lens_index, query_string).then(function(result_object) {
-            if(result_object.error !== null) {
-                return $.Deferred().reject(result_object.error);
-            }
-            results_manager.show(result_object.results);
-        }).then(null, function(error) {
-            results_manager.showError(error);
-        });
+        search_form.execute();
     });
 });
     </script>
