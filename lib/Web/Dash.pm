@@ -10,6 +10,7 @@ use File::Spec;
 use Encode;
 use Future 0.07;
 use AnyEvent::DBus 0.31;
+use AnyEvent;
 use JSON qw(to_json);
 use Try::Tiny;
 use Carp;
@@ -310,6 +311,18 @@ sub new {
     }else {
         $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
     }
+
+    ## ** Wait for all the lenses to respond and recreate them.
+    ## ** This is because lenses can be unstable at first.
+    ## ** See xt/spawning-lens.t for detail.
+    my $cv = AnyEvent->condvar;
+    foreach my $lens (@{$self->{lenses}}) {
+        $cv->begin;
+        $lens->description->on_ready(sub { $cv->end })
+    }
+    $cv->recv;
+    $self->_recreate_lenses();
+    
     return $self;
 }
 
@@ -320,6 +333,12 @@ sub _init_lenses {
         return if $filepath !~ /\.lens$/;
         push(@{$self->{lenses}}, Web::Dash::Lens->new(lens_file => $filepath));
     }, @search_dirs);
+}
+
+sub _recreate_lenses {
+    my ($self) = @_;
+    my @new_lenses = map { $_->clone } @{$self->{lenses}};
+    $self->{lenses} = \@new_lenses;
 }
 
 sub _render_index {
