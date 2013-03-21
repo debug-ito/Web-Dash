@@ -19,6 +19,7 @@ sub new {
         service_name => undef,
         object_name => undef,
         bus => undef,
+        bus_address => undef,
         query_object => undef,
         results_object_future => Future->new,
         description_future => Future->new,
@@ -80,6 +81,7 @@ sub _result_array_to_hash {
 
 sub _init_bus {
     my ($self, $bus_address) = @_;
+    $self->{bus_address} = $bus_address;
     if($bus_address eq ':session') {
         $self->{bus} = Net::DBus->session;
     }elsif($bus_address eq ':system') {
@@ -208,6 +210,17 @@ sub search {
 sub search_sync {
     my ($self, $query_string) = @_;
     return $self->_wait_on($self->search($query_string));
+}
+
+sub clone {
+    my ($self) = @_;
+    return ref($self)->new(
+        service_name => $self->service_name,
+        object_name => $self->object_name,
+        reactor => $self->{reactor},
+        bus_address => $self->{bus_address},
+        concurrency => $self->{request_queue}->concurrency,
+    );
 }
 
 our $VERSION = '0.01';
@@ -394,6 +407,10 @@ Returns the DBus service name of the C<$lens>.
 =head2 $object_name = $lens->object_name
 
 Returns the DBus object name of the C<$lens>.
+
+=head2 $new_lens = $lens->clone
+
+Returns the clone of the C<$lens>.
 
 =head1 AUTHOR
 
