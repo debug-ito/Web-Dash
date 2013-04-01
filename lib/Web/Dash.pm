@@ -429,44 +429,109 @@ and you can have the awesome searching power of Dash.
 
 =head1 CAVEAT
 
+=head2 This is an experimental application
+
 L<Web::Dash> is quite an B<experimental> application.
 
 It is not at all based on any official specification or documentation about Unity Dash or Unity Lens.
 Instead, I analyzed the behavior of Unity Dash and Unity Lenses from outside,
 and implemented what I guess was the correct usage of them.
-See L<Web::Dash::Lens> for implementation detail.
 
 I tested L<Web::Dash> in Ubuntu 12.04 and Xubuntu 12.04.
 However it may not work as expected in other environments.
 It is also possible for L<Web::Dash> to stop working in future versions of Unity or Ubuntu.
 
+=head2 Privacy issues
+
+If you use L<Web::Dash> to share the Lenses with other people,
+you must be aware that it may have some privacy issues.
+
+=over
+
+=item *
+
+Since the Lens processes cache search results,
+you can see other people's search results through the cache.
+
+=item *
+
+Some Lenses are meant to search the local file system.
+If you export those lenses to others, they are able to
+see names of your files.
+
+=back
+
 
 =head1 SCREENSHOTS
+
+
 
 =head1 TUTORIAL
 
 =head2 Installation
 
-To install L<Web::Dash>, type
+To install L<Web::Dash>, first you need development tools and files for libexpat and libdbus.
 
-    # curl -L http://cpanmin.us | perl - Web::Dash
+    $ sudo apt-get install build-essential pkg-config libexpat1-dev libdbus-1-dev
 
-or 
+Then, type
 
-    # wget -O- http://cpanmin.us | perl - Web::Dash
+    $ sudo sh -c 'wget -O- http://cpanmin.us | perl - Web::Dash'
 
-or
+to install L<Web::Dash> from CPAN.
 
-    # cpanm Web::Dash
+Of course, if you already have a CPAN client installed, you can type
 
-or whatever you feel like.
+    $ sudo cpanm Web::Dash
+
 
 =head2 Installing some lenses
 
+Most Unity Lenses are provided as .deb packages named C<unity-lens-*>.
+
+In Ubuntu, some Lens packages are served by "extra" repository.
+Make sure the repository is enabled in your system.
+
+    $ grep extras /etc/apt/sources.list
+    deb http://extras.ubuntu.com/ubuntu precise main
+    deb-src http://extras.ubuntu.com/ubuntu precise main
+
+Uncomment the deb lines if they are commented out.
+
+To install Github lens, for example, type
+
+    $ sudo apt-get update
+    $ sudo apt-get install unity-lens-github
+
+
 =head2 Start webdash
+
+To start webdash, type
+
+    $ webdash
+    Twiggy: Accepting connections at http://127.0.0.1:5000/
+
+Access the URL with a Web browser.
+
+
+=head2 Run webdash in Ubuntu Server
+
+In a non-GUI environment, first you need to execute the following.
+
+    $ eval `dbus-launch --auto-syntax`
+
+This will launch a DBus daemon for the session bus,
+and set the environment variables necessary to access the bus.
+
+After that, run C<webdash> as usual.
+
+    $ webdash
 
 
 =head1 AS A MODULE
+
+As a Perl module, L<Web::Dash> provides a class object that can generate a L<PSGI> application.
+You can use L<Web::Dash> in your .psgi file to customize which Lenses to export.
 
 =head1 SYNOPSIS
 
