@@ -101,10 +101,10 @@ li {
       <span id="results-num"></span>
     </div>
     <ul id="lens-selector">
-      [% FOREACH hint in search_hints %]
+      [% FOREACH info in lens_info %]
         <li><label>
-          <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] [% END %] />
-          [% hint %]
+          <input type="radio" name="lens" value="[% info.name %]" />
+          [% info.hint %]
         </label></li>
       [% END ## FOREACH %]
     </ul>
@@ -114,10 +114,10 @@ li {
     <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script type="text/javascript">
 $(function() {
-    var executeSearch = function(lens_index, query_string) {
+    var executeSearch = function(lens_name, query_string) {
         return $.ajax({
             url: "search.json",
-            data: { lens: lens_index, q: query_string },
+            data: { lens: lens_name, q: query_string },
             dataType: "json",
             type: 'GET',
         }).then(null, function(jqxhr, text_status, error_thrown) {
@@ -249,6 +249,10 @@ $(function() {
         getLensIndex: function() {
             return this.lens_index;
         },
+        getCurrentLensName: function() {
+            var self = this;
+            return $(self.sel_lens_index).find('input').eq(self.lens_index).attr("value");
+        },
         up: function() { this.setLensIndex(this.getLensIndex() - 1) },
         down: function() { this.setLensIndex(this.getLensIndex() + 1) },
         onChange: function(listener) {
@@ -266,9 +270,9 @@ $(function() {
             if(query_string === "") {
                 return;
             }
-            var lens_index = lens_manager.getLensIndex();
+            var lens_name = lens_manager.getCurrentLensName();
             spinner.begin();
-            executeSearch(lens_index, query_string).then(function(result_object) {
+            executeSearch(lens_name, query_string).then(function(result_object) {
                 if(result_object.error !== null) {
                     return $.Deferred().reject(result_object.error);
                 }
@@ -315,6 +319,7 @@ sub new {
     my ($class, %args) = @_;
     my $self = bless {
         lenses => [],
+        lens_for_service_name => {},
         renderer => Text::Xslate->new(
             path => [{index => $index_page}],
             cache_dir => File::Spec->tmpdir,
@@ -338,7 +343,8 @@ sub new {
             $lens->search_hint->then(sub { $cv->end })
         }
         $cv->recv;
-        $self->_recreate_lenses();    
+        $self->_recreate_lenses();
+        %{$self->{lens_for_service_name}} = map { $_->service_name => $_ } @{$self->{lenses}};
     }
     
     return $self;
@@ -365,7 +371,12 @@ sub _render_index {
         my ($responder) = @_;
         Future::Q->wait_all(map { $_->search_hint } @{$self->{lenses}})->then(sub {
             my (@search_hints) = map { $_->get } @_;
-            my $page = $self->{renderer}->render("index", {search_hints => \@search_hints});
+            my @lens_info = map {
+                my $hint = $search_hints[$_];
+                my $lens = $self->{lenses}[$_];
+                +{hint => $hint, name => $lens->service_name};
+            } (0 .. $#search_hints);
+            my $page = $self->{renderer}->render("index", { lens_info => \@lens_info });
             $responder->([
                 200, ['Content-Type', 'text/html; charset=utf8'],
                 [Encode::encode('utf8', $page)]
@@ -395,13 +406,14 @@ sub _render_search {
     my ($self, $req) = @_;
     return sub {
         my $responder = shift;
-        my $lens_index = $req->query_parameters->{lens} || 0;
+        my $lens_name = $req->query_parameters->{lens} || 0;
         my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
         Future::Q->try(sub {
-            if(not defined $self->{lenses}[$lens_index]) {
-                die "lens param must be between 0 - " . (@{$self->{lenses}} - 1) . "\n";
+            my $lens = $self->{lens_for_service_name}{$lens_name};
+            if(not defined $lens) {
+                die "Unknown lens name: $lens_name\n";
             }
-            return $self->{lenses}[$lens_index]->search($query_string);
+            return $lens->search($query_string);
         })->then(sub {
             my @results = @_;
             $responder->(_json_response({error => undef, results => \@results}), 200);
@@ -547,6 +559,11 @@ and set the environment variables necessary to access the bus.
 After that, run C<webdash> as usual.
 
     $ webdash
+
+
+=head1 WEB API
+
+TODO: describe Web API spec.
 
 
 =head1 AS A MODULE
