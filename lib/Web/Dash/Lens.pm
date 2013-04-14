@@ -22,7 +22,7 @@ sub new {
         bus_address => undef,
         query_object => undef,
         results_object_future => Future::Q->new,
-        description_future => Future::Q->new,
+        search_hint_future => Future::Q->new,
         request_queue => undef,
     }, $class;
     $self->_init_queue($args{concurrency});
@@ -37,7 +37,7 @@ sub new {
             my ($obj_name, $flag1, $flag2, $desc, $unknown,
                 $service_results, $service_global_results, $service_categories, $service_filters) = @$result_arrayref;
             $self->{query_object}->disconnect_from_signal('Changed', $sigid);
-            $self->{description_future}->fulfill(Encode::decode('utf8', $desc));
+            $self->{search_hint_future}->fulfill(Encode::decode('utf8', $desc));
             my $object_results = _results_object_name($service_results);
             $self->{results_object_future}->fulfill(
                 $self->{bus}->get_service($service_results)
@@ -149,14 +149,14 @@ sub _wait_on {
     return @result;
 }
 
-sub description {
+sub search_hint {
     my ($self) = @_;
-    return $self->{description_future};
+    return $self->{search_hint_future};
 }
 
-sub description_sync {
+sub search_hint_sync {
     my ($self) = @_;
-    my ($desc) = $self->_wait_on($self->description);
+    my ($desc) = $self->_wait_on($self->search_hint);
     return $desc;
 }
 
@@ -386,19 +386,19 @@ In success, C<$future> will be resolved. You can obtain the list of search resul
 In failure, C<$future> will be rejected. You can obtain the exception by C<< $future->failure >> method.
 
 
-=head2 $description = $lens->description_sync()
+=head2 $search_hint = $lens->search_hint_sync()
 
-Returns the description of the C<$lens>.
-C<$description> is a text string, not a binary (or octet) string.
+Returns the search hint of the C<$lens>. The search hint is a short description of the C<$lens>.
+C<$search_hint> is a text string, not a binary (or octet) string.
 
-=head2 $future = $lens->description()
+=head2 $future = $lens->search_hint()
 
-The asynchronous version of C<description()> method.
+The asynchronous version of C<search_hint()> method.
 
 Instead of returning the results, this method returns a L<Future::Q> object
-that represents the description obtained in future.
+that represents the search hint obtained in future.
 
-When done, C<$future> will be resolved. You can obtain the description by C<< $future->get >> method.
+When done, C<$future> will be resolved. You can obtain the search hint by C<< $future->get >> method.
 
 =head2 $service_name = $lens->service_name
 

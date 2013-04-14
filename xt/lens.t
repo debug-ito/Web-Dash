@@ -40,7 +40,7 @@ my @test_cases = (
         lens_file => '/usr/share/unity/lenses/applications/applications.lens',
         exp_service_name => 'com.canonical.Unity.Lens.Applications',
         exp_object_name => '/com/canonical/unity/lens/applications',
-        exp_description => 'アプリケーションの検索',
+        exp_search_hint => 'アプリケーションの検索',
         search_cases => [
             {query => "term", exp_cmp => ['>', 0]},
             {label => '"term" again', query => 'term', exp_cmp => ['>', 0]},
@@ -51,7 +51,7 @@ my @test_cases = (
         lens_file => '/usr/share/unity/lenses/files/files.lens',
         exp_service_name => 'com.canonical.Unity.Lens.Files',
         exp_object_name => '/com/canonical/unity/lens/files',
-        exp_description => 'ファイルとフォルダーの検索',
+        exp_search_hint => 'ファイルとフォルダーの検索',
         search_cases => [
             {query => 'a', exp_cmp => ['>=', 0]},
             {query => 'b', exp_cmp => ['>=', 0]},
@@ -61,7 +61,7 @@ my @test_cases = (
         lens_file => '/usr/share/unity/lenses/extras-unity-lens-github/extras-unity-lens-github.lens',
         exp_service_name => 'unity.singlet.lens.github',
         exp_object_name => '/unity/singlet/lens/github',
-        exp_description => 'Search Github',
+        exp_search_hint => 'Search Github',
         search_cases => [
             {query => 'web dash', exp_cmp => ['>', 0]},
             {query => 'async queue', exp_cmp => ['>', 0]},
@@ -71,7 +71,7 @@ my @test_cases = (
         lens_file => '/usr/share/unity/lenses/video/video.lens',
         exp_service_name => 'net.launchpad.lens.video',
         exp_object_name => '/net/launchpad/lens/video',
-        exp_description => '動画の検索',
+        exp_search_hint => '動画の検索',
         search_cases => [
             {query => 'hoge', exp_cmp => ['>', 0]},
             {query => 'foo', exp_cmp => ['>', 0]},
@@ -89,8 +89,8 @@ foreach my $case (@test_cases) {
         my $lens = new_ok('Web::Dash::Lens', [lens_file => $case->{lens_file}]);
         is($lens->service_name, $case->{exp_service_name}, 'service name OK');
         is($lens->object_name, $case->{exp_object_name}, 'object name OK');
-        is($lens->description_sync, $case->{exp_description}, "description_sync OK");
-        is($lens->description_sync, $case->{exp_description}, "description_sync OK again");
+        is($lens->search_hint_sync, $case->{exp_search_hint}, "search_hint_sync OK");
+        is($lens->search_hint_sync, $case->{exp_search_hint}, "search_hint_sync OK again");
     }
     is(int(@lenses_destroyed), 1, "1 lens destroyed.");
     is($lenses_destroyed[0], $service_name, "... and it's $service_name");
@@ -102,7 +102,7 @@ foreach my $case (@test_cases) {
             service_name => $case->{exp_service_name},
             object_name => $case->{exp_object_name},
         ]);
-        is($lens->description_sync, $case->{exp_description}, "description_sync OK");
+        is($lens->search_hint_sync, $case->{exp_search_hint}, "search_hint_sync OK");
     }
     is(int(@lenses_destroyed), 1, "1 lens destroyed.");
     is($lenses_destroyed[0], $service_name, "... and it's $service_name");

@@ -101,10 +101,10 @@ li {
       <span id="results-num"></span>
     </div>
     <ul id="lens-selector">
-      [% FOREACH desc in descriptions %]
+      [% FOREACH hint in search_hints %]
         <li><label>
           <input type="radio" name="lens" value="[% loop.index %]" [% IF loop.is_first %] [% END %] />
-          [% desc %]
+          [% hint %]
         </label></li>
       [% END ## FOREACH %]
     </ul>
@@ -335,7 +335,7 @@ sub new {
         my $cv = AnyEvent->condvar;
         foreach my $lens (@{$self->{lenses}}) {
             $cv->begin;
-            $lens->description->then(sub { $cv->end })
+            $lens->search_hint->then(sub { $cv->end })
         }
         $cv->recv;
         $self->_recreate_lenses();    
@@ -363,9 +363,9 @@ sub _render_index {
     my ($self, $req) = @_;
     return sub {
         my ($responder) = @_;
-        Future::Q->wait_all(map { $_->description } @{$self->{lenses}})->then(sub {
-            my (@descriptions) = map { $_->get } @_;
-            my $page = $self->{renderer}->render("index", {descriptions => \@descriptions});
+        Future::Q->wait_all(map { $_->search_hint } @{$self->{lenses}})->then(sub {
+            my (@search_hints) = map { $_->get } @_;
+            my $page = $self->{renderer}->render("index", {search_hints => \@search_hints});
             $responder->([
                 200, ['Content-Type', 'text/html; charset=utf8'],
                 [Encode::encode('utf8', $page)]

@@ -8,8 +8,8 @@ system('killall', 'unity-lens-github');
 {
     my $lens_file = '/usr/share/unity/lenses/extras-unity-lens-github/extras-unity-lens-github.lens';
     my $lens = Web::Dash::Lens->new(lens_file => $lens_file);
-    my $desc = $lens->description_sync();
-    ok($desc, "description obtained");
+    my $desc = $lens->search_hint_sync();
+    ok($desc, "search_hint obtained");
 
     note(<<EOD);
 If lens process is not running, DBus seems to spawn it when someone tries to
