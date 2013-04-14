@@ -250,9 +250,12 @@ $(function() {
         
         execute: function() {
             var query_string = $(this.sel_query).val();
+            if(query_string === "") {
+                return;
+            }
             var lens_index = lens_manager.getLensIndex();
             spinner.begin();
-            return executeSearch(lens_index, query_string).then(function(result_object) {
+            executeSearch(lens_index, query_string).then(function(result_object) {
                 if(result_object.error !== null) {
                     return $.Deferred().reject(result_object.error);
                 }
