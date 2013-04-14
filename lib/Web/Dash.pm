@@ -60,6 +60,7 @@ li {
 
 .search-result {
     padding-left: 10px;
+    overflow: auto;
 }
 
 .search-result-hint {
@@ -76,6 +77,14 @@ li {
     margin: 0;
     padding: 0 0 5px 0;
     font-size: normal;
+}
+
+.search-result-icon {
+    display: block;
+    max-width: 80px;
+    max-height: 80px;
+    float: left;
+    margin-right: 5px;
 }
 
 .search-result-desc {
@@ -201,14 +210,18 @@ $(function() {
                 if(result.name === "") return true;
                 var $li = $('<li class="search-result"></li>');
                 var $name = $('<h3 class="search-result-name"></h3>');
+                var $desc;
                 if(result.uri === "") {
                     $name.text(result.name);
                 }else {
                     $('<a></a>').attr('href', result.uri).text(result.name).appendTo($name);
                 }
                 $li.append($name);
+                if(result.icon_str && result.icon_str.match("^https?://")) {
+                    $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
+                }
                 if(result.description !== "") {
-                    $('<div class="search-result-desc"></span>').text(result.description).appendTo($li);
+                    $('<div class="search-result-desc"></div>').text(result.description).appendTo($li);
                 }
                 $list.append($li);
             });
