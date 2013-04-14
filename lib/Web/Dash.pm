@@ -560,6 +560,8 @@ After that, run C<webdash> as usual.
 
     $ webdash
 
+TODO: comment on "LANG" environment.
+
 
 =head1 WEB API
 
