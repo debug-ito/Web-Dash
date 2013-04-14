@@ -11,7 +11,7 @@ system('killall', 'unity-lens-github');
     my $desc = $lens->description_sync();
     ok($desc, "description obtained");
 
-    diag(<<EOD);
+    note(<<EOD);
 If lens process is not running, DBus seems to spawn it when someone tries to
 communicate with it. Unfortunately, the newly spawned remote object is somehow
 unprepared and call to Search() method fails in a strange way. By recreating the lens,

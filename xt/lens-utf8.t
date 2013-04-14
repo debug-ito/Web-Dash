@@ -16,7 +16,7 @@ foreach my $result (@results) {
     }
 }
 ok($find_tammatsu, 'The japanese word "tammatsu" found');
-diag(explain @results);
+note(explain @results);
 
 done_testing();
 

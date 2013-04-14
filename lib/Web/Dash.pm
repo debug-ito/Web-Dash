@@ -8,7 +8,7 @@ use Web::Dash::Lens;
 use Text::Xslate;
 use File::Spec;
 use Encode;
-use Future 0.07;
+use Future::Q 0.012;
 use AnyEvent::DBus 0.31;
 use AnyEvent;
 use JSON qw(to_json);
@@ -318,7 +318,7 @@ sub new {
     my $cv = AnyEvent->condvar;
     foreach my $lens (@{$self->{lenses}}) {
         $cv->begin;
-        $lens->description->on_ready(sub { $cv->end })
+        $lens->description->then(sub { $cv->end })
     }
     $cv->recv;
     $self->_recreate_lenses();
@@ -345,12 +345,18 @@ sub _render_index {
     my ($self, $req) = @_;
     return sub {
         my ($responder) = @_;
-        Future->wait_all(map { $_->description } @{$self->{lenses}})->on_done(sub {
+        Future::Q->wait_all(map { $_->description } @{$self->{lenses}})->then(sub {
             my (@descriptions) = map { $_->get } @_;
             my $page = $self->{renderer}->render("index", {descriptions => \@descriptions});
             $responder->([
                 200, ['Content-Type', 'text/html; charset=utf8'],
                 [Encode::encode('utf8', $page)]
+            ]);
+        })->catch(sub {
+            my $error = shift;
+            $responder->([
+                500, ['Content-Type', 'text/plain'],
+                [Encode::encode('utf8', $error)]
             ]);
         });
     };
@@ -373,21 +379,18 @@ sub _render_search {
         my $responder = shift;
         my $lens_index = $req->query_parameters->{lens} || 0;
         my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
-        try {
+        Future::Q->try(sub {
             if(not defined $self->{lenses}[$lens_index]) {
-                die "lens param must be between 0 - " . (@{$self->{lenses}} - 1);
+                die "lens param must be between 0 - " . (@{$self->{lenses}} - 1) . "\n";
             }
-            $self->{lenses}[$lens_index]->search($query_string)->on_done(sub {
-                my @results = @_;
-                $responder->(_json_response({error => undef, results => \@results}), 200);
-            })->on_fail(sub {
-                my $e = shift;
-                $responder->(_json_response({error => "search error: $e"}), 500);
-            });
-        }catch {
+            return $self->{lenses}[$lens_index]->search($query_string);
+        })->then(sub {
+            my @results = @_;
+            $responder->(_json_response({error => undef, results => \@results}), 200);
+        })->catch(sub {
             my $e = shift;
             $responder->(_json_response({error => $e}, 500));
-        };
+        });
     };
 }
 

@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp;
 use Try::Tiny;
-use Future 0.07;
+use Future::Q 0.012;
 use Scalar::Util qw(weaken);
 use Net::DBus;
 use Net::DBus::Reactor;
@@ -21,8 +21,8 @@ sub new {
         bus => undef,
         bus_address => undef,
         query_object => undef,
-        results_object_future => Future->new,
-        description_future => Future->new,
+        results_object_future => Future::Q->new,
+        description_future => Future::Q->new,
         request_queue => undef,
     }, $class;
     $self->_init_queue($args{concurrency});
@@ -37,9 +37,9 @@ sub new {
             my ($obj_name, $flag1, $flag2, $desc, $unknown,
                 $service_results, $service_global_results, $service_categories, $service_filters) = @$result_arrayref;
             $self->{query_object}->disconnect_from_signal('Changed', $sigid);
-            $self->{description_future}->done(Encode::decode('utf8', $desc));
+            $self->{description_future}->fulfill(Encode::decode('utf8', $desc));
             my $object_results = _results_object_name($service_results);
-            $self->{results_object_future}->done(
+            $self->{results_object_future}->fulfill(
                 $self->{bus}->get_service($service_results)
                     ->get_object($object_results, 'com.canonical.Dee.Model')
             );
@@ -137,11 +137,10 @@ sub _wait_on {
     }
     my @result;
     my $exception;
-    $future->on_done(sub {
+    $future->then(sub {
         @result = @_;
         $self->{reactor}->shutdown;
-    });
-    $future->on_fail(sub {
+    }, sub {
         $exception = shift;
         $self->{reactor}->shutdown;
     });
@@ -169,31 +168,32 @@ sub _init_queue {
         worker => sub {
             my ($task, $queue_done) = @_;
             my ($query_string, $final_future) = @$task;
-            $self->{results_object_future}->and_then(sub {
-                my ($results_object) = shift->get;
-                my $search_method_future = Future->new;
+            $self->{results_object_future}->then(sub {
+                my ($results_object) = @_;
+                my $search_method_future = Future::Q->new;
                 $self->{query_object}->Search(dbus_call_async, $query_string, {})->set_notify(sub {
-                    $search_method_future->done($results_object, shift->get_result);
+                    $search_method_future->fulfill($results_object, shift->get_result);
                 });
                 return $search_method_future;
-            })->and_then(sub {
-                my ($results_object, $search_result) = shift->get;
+            })->then(sub {
+                my ($results_object, $search_result) = @_;
                 my $seqnum = $search_result->{'model-seqnum'};
-                my $clone_method_future = Future->new;
+                my $clone_method_future = Future::Q->new;
                 $results_object->Clone(dbus_call_async)->set_notify(sub {
-                    $clone_method_future->done($seqnum, shift->get_result);
+                    $clone_method_future->fulfill($seqnum, shift->get_result);
                 });
                 return $clone_method_future;
-            })->on_ready(sub {
-                my ($seqnum, $swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = shift->get;
+            })->then(sub {
+                my ($seqnum, $swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = @_;
                 my $result_seqnum = $seqnum_before_after->[1];
                 if($result_seqnum != $seqnum) {
-                    $final_future->fail("Your query is somehow lost.");
-                    $queue_done->();
-                    return;
+                    die "Your query is somehow lost.\n";
                 }
                 my $valid_results = [ map { _result_array_to_hash($_) } @{_extract_valid_results($schema, $row_data)} ];
-                $final_future->done(@$valid_results);
+                $final_future->fulfill(@$valid_results);
+                $queue_done->();
+            })->catch(sub {
+                $final_future->reject(@_);
                 $queue_done->();
             });
         }
@@ -202,7 +202,7 @@ sub _init_queue {
 
 sub search {
     my ($self, $query_string) = @_;
-    my $outer_future = Future->new;
+    my $outer_future = Future::Q->new;
     $self->{request_queue}->push([$query_string, $outer_future]);
     return $outer_future;
 }
@@ -261,7 +261,7 @@ Web::Dash::Lens - An experimental Unity Lens object
     
         
     ## Asynchronous query
-    use Future;
+    use Future::Q;
     use Net::DBus::Reactor;
         
     $lens->search("terminal")->on_done(sub {
@@ -378,7 +378,7 @@ In failure, this method throws an exception.
 
 The asynchronous version of C<search_sync()> method.
 
-Instead of returning the results, this method returns a L<Future> object
+Instead of returning the results, this method returns a L<Future::Q> object
 that represents the search results obtained in future.
 
 In success, C<$future> will be resolved. You can obtain the list of search results by C<< $future->get >> method.
@@ -395,7 +395,7 @@ C<$description> is a text string, not a binary (or octet) string.
 
 The asynchronous version of C<description()> method.
 
-Instead of returning the results, this method returns a L<Future> object
+Instead of returning the results, this method returns a L<Future::Q> object
 that represents the description obtained in future.
 
 When done, C<$future> will be resolved. You can obtain the description by C<< $future->get >> method.
