@@ -312,16 +312,18 @@ sub new {
         $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
     }
 
-    ## ** Wait for all the lenses to respond and recreate them.
-    ## ** This is because lenses can be unstable at first.
-    ## ** See xt/spawning-lens.t for detail.
-    my $cv = AnyEvent->condvar;
-    foreach my $lens (@{$self->{lenses}}) {
-        $cv->begin;
-        $lens->description->then(sub { $cv->end })
+    if(@{$self->{lenses}}) {
+        ## ** Wait for all the lenses to respond and recreate them.
+        ## ** This is because lenses can be unstable at first.
+        ## ** See xt/spawning-lens.t for detail.
+        my $cv = AnyEvent->condvar;
+        foreach my $lens (@{$self->{lenses}}) {
+            $cv->begin;
+            $lens->description->then(sub { $cv->end })
+        }
+        $cv->recv;
+        $self->_recreate_lenses();    
     }
-    $cv->recv;
-    $self->_recreate_lenses();
     
     return $self;
 }

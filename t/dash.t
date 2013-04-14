@@ -13,11 +13,6 @@ BEGIN {
     is(ref($dash->to_app), 'CODE', 'to_app() OK (maybe...)');
 }
 
-{
-    my $dash = new_ok('Web::Dash', [lenses => ['a']]); ## just for testing...
-    is_deeply($dash->{lenses}, ['a'], "fake lenses OK");
-}
-
 done_testing();
 
 
