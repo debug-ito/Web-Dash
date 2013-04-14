@@ -26,14 +26,14 @@ show_results(@search_results);
 
     
 ## Asynchronous query
-use Future;
+use Future::Q;
 use Net::DBus::Reactor;
     
-$lens->search("terminal")->on_done(sub {
+$lens->search("terminal")->then(sub {
     my @search_results = @_;
     show_results(@search_results);
     Net::DBus::Reactor->main->shutdown;
-})->on_fail(sub {
+})->catch(sub {
     my $e = shift;
     warn "Error: $e";
     Net::DBus::Reactor->main->shutdown;
