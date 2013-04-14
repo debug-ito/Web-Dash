@@ -107,7 +107,7 @@ li {
 $(function() {
     var executeSearch = function(lens_index, query_string) {
         return $.ajax({
-            url: "/search.json",
+            url: "search.json",
             data: { lens: lens_index, q: query_string },
             dataType: "json",
             type: 'GET',
