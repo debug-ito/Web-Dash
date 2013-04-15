@@ -63,19 +63,19 @@ sub _extract_valid_results {
 sub _result_array_to_hash {
     my ($raw_result_array) = @_;
     my %map = (
-        0 => 'unity_id',
-        1 => 'icon_str',
-        2 => 'flag',
-        3 => 'mime_type',
+        0 => 'uri',
+        1 => 'icon_hint',
+        2 => 'category_index',
+        3 => 'mimetype',
         4 => 'name',
-        5 => 'description',
-        6 => 'uri'
+        5 => 'comment',
+        6 => 'dnd_uri'
     );
     my $desired_size = int(keys %map);
     my $size = @$raw_result_array;
     croak "size of result array is $size, not $desired_size." if $size != $desired_size;
     my $result_hash = +{ map { $map{$_} => Encode::decode('utf8', $raw_result_array->[$_]) } keys %map };
-    $result_hash->{flag} += 0; ## numerify
+    $result_hash->{category_index} += 0; ## numerify
     return $result_hash;
 }
 
@@ -346,33 +346,45 @@ All the string values are text strings, not binary (octet) strings.
 
 =over
 
-=item C<unity_id> => STR
+=item C<uri> => STR
 
-Some kind of ID string. I guess Unity makes use of it.
+A URI of the result entry.
+This URI is designed for Unity.
+B<< Normal applications should refer to C<dnd_uri> below >>.
 
-=item C<icon_str> => STR
+=item C<icon_hint> => STR
 
 A string that specifies the icon of the result entry.
 
-=item C<flag> => INT
 
-Some kind of integer flag. I don't know what it means.
+=item C<category_index> => INT
+
+The category index for the result entry.
+You can obtain category information by C<category()> method.
+
+=item C<mimetype> => STR
+
+MIME type of the result entry.
 
 =item C<name> => STR
 
 The name of the result entry.
 
-=item C<description> => STR
+=item C<comment> => STR
 
-The description of the result entry.
+One line description of the result entry.
 
-=item C<uri> => STR
+=item C<dnd_uri> => STR
 
-The URI of the result entry.
+A URI of the result entry.
+This URI takes a form that most applications can comprehend.
+"dnd" stands for "Drag and Drop", I guess.
 
 =back
 
 In failure, this method throws an exception.
+
+See also: https://wiki.ubuntu.com/Unity/Lenses#Schema
 
 
 =head2 $future = $lens->search($query_string)

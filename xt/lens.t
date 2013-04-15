@@ -29,7 +29,7 @@ sub test_search_results {
     cmp_ok(int(@$got_results), $entry_num_cmp, $entry_num_base, "$label: results num OK");
     foreach my $i (0 .. $#$got_results) {
         my $r = $got_results->[$i];
-        foreach my $key (qw(unity_id icon_str flag mime_type name description uri)) {
+        foreach my $key (qw(uri icon_hint category_index mimetype name comment dnd_uri)) {
             ok(defined($r->{$key}), "$label: $key defined");
         }
     }

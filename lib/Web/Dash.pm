@@ -210,18 +210,17 @@ $(function() {
                 if(result.name === "") return true;
                 var $li = $('<li class="search-result"></li>');
                 var $name = $('<h3 class="search-result-name"></h3>');
-                var $desc;
-                if(result.uri === "") {
+                if(result.dnd_uri === "") {
                     $name.text(result.name);
                 }else {
-                    $('<a></a>').attr('href', result.uri).text(result.name).appendTo($name);
+                    $('<a></a>').attr('href', result.dnd_uri).text(result.name).appendTo($name);
                 }
                 $li.append($name);
                 if(result.icon_str && result.icon_str.match("^https?://")) {
                     $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
                 }
-                if(result.description !== "") {
-                    $('<div class="search-result-desc"></div>').text(result.description).appendTo($li);
+                if(result.comment !== "") {
+                    $('<div class="search-result-desc"></div>').text(result.comment).appendTo($li);
                 }
                 $list.append($li);
             });
