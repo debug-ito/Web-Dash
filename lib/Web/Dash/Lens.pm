@@ -38,7 +38,7 @@ sub new {
                 $service_results, $service_global_results, $service_categories, $service_filters) = @$result_arrayref;
             $self->{query_object}->disconnect_from_signal('Changed', $sigid);
             $self->{search_hint_future}->fulfill(Encode::decode('utf8', $desc));
-            my $object_results = _results_object_name($service_results);
+            my $object_results = _model_object_from_service($service_results);
             $self->{results_object_future}->fulfill(
                 $self->{bus}->get_service($service_results)
                     ->get_object($object_results, 'com.canonical.Dee.Model')
@@ -98,9 +98,9 @@ sub _remove_delims {
     return $str;
 }
 
-sub _results_object_name {
-    my ($results_service_name) = @_;
-    my $name = $results_service_name;
+sub _model_object_from_service {
+    my ($model_service_name) = @_;
+    my $name = $model_service_name;
     $name =~ s|\.|/|g;
     return "/com/canonical/dee/model/$name";
 }
@@ -279,6 +279,23 @@ Web::Dash::Lens - An experimental Unity Lens object
 =head1 DESCRIPTION
 
 L<Web::Dash::Lens> is an object that represents a Unity Lens.
+Note that this module is for using lenses, not for creating your own lenses.
+
+=head1 CAVEAT
+
+If you use L<AnyEvent::DBus>, do not use C<*_sync()> methods.
+Instead you have to use asynchronous methods and explicit condition variables.
+
+    my $cv = AnyEvent->condvar;
+    $lens->search_hint()->then(sub {
+        $cv->send(@_);
+    }, sub {
+        $cv->croak(shift);
+    });
+    my $search_hint = $cv->recv;
+
+This is because L<AnyEvent::DBus> replaces the DBus reactor
+that is not completely compatible with the original L<Net::DBus::Reactor> objects.
 
 =head1 CLASS METHOD
 
@@ -394,7 +411,7 @@ The asynchronous version of C<search_sync()> method.
 Instead of returning the results, this method returns a L<Future::Q> object
 that represents the search results obtained in future.
 
-In success, C<$future> will be resolved. You can obtain the list of search results by C<< $future->get >> method.
+In success, C<$future> will be fulfilled. You can obtain the list of search results by C<< $future->get >> method.
 
 In failure, C<$future> will be rejected. You can obtain the exception by C<< $future->failure >> method.
 
@@ -406,12 +423,51 @@ C<$search_hint> is a text string, not a binary (or octet) string.
 
 =head2 $future = $lens->search_hint()
 
-The asynchronous version of C<search_hint()> method.
+The asynchronous version of C<search_hint_sync()> method.
 
 Instead of returning the results, this method returns a L<Future::Q> object
 that represents the search hint obtained in future.
 
-When done, C<$future> will be resolved. You can obtain the search hint by C<< $future->get >> method.
+When done, C<$future> will be fulfilled. You can obtain the search hint by C<< $future->get >> method.
+
+=head2 $category_hashref = $lens->category_sync($category_index)
+
+Returns a hash-ref describing the category specified by C<$category_index>.
+
+C<$category_index> is an integer greater than or equal to zero.
+
+C<$category_hashref> is an hash-ref containing information about the category.
+It has the following key-value pairs.
+All the string values are text strings, not binary (octet) strings.
+
+=over
+
+=item C<name> => STR
+
+The name of the category.
+
+=item C<icon_hint> => STR
+
+A string that specifies the icon of the category.
+
+=item C<renderer> => STR
+
+A string that specifies how the results in this category should be rendered.
+
+=back
+
+If C<$category_index> is invalid, it throws an exception.
+
+=head2 $future = $lens->category($category_index)
+
+The asynchronous version of C<category_sync()> method.
+
+Instead of returning the category hash-ref, this method returns a L<Future::Q> object.
+
+In success, C<$future> will be fulfilled. You can obtain the category hash-ref by C<< $future->get >> method.
+
+In failure, C<$future> will be rejected. You can obtain the exception by C<< $future->failure >> method.
+
 
 =head2 $service_name = $lens->service_name
 
