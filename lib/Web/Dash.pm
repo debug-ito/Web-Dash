@@ -108,9 +108,9 @@ li {
         </label></li>
       [% END ## FOREACH %]
     </ul>
-    <ul id="results">
-      <li class="search-result-hint">Hint: You can change lens with arrow Up and Down keys.</li>
-    </ul>
+    <div id="results">
+      <div class="search-result-hint">Hint: You can change lens with arrow Up and Down keys.</div>
+    </div>
     <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script type="text/javascript">
 $(function() {
@@ -198,32 +198,76 @@ $(function() {
         sel_num: '#results-num',
         showError: function(error) {
             $(this.sel_num).empty();
-            var $list = $(this.sel);
-            $list.empty();
-            $('<li class="search-result-error"></li>').text(error).appendTo($list);
+            var $results = $(this.sel);
+            $results.empty();
+            $('<div class="search-result-error"></div>').text(error).appendTo($results);
         },
-        show: function(results) {
-            $(this.sel_num).text(results.length + " result" + (results.length > 1 ? "s" : ""));
-            var $list = $(this.sel);
-            $list.empty();
+        _createCategoryGroups: function(results) {
+            var groups = {};
+            var groups_list = [];
             $.each(results, function(i, result) {
                 if(result.name === "") return true;
-                var $li = $('<li class="search-result"></li>');
-                var $name = $('<h3 class="search-result-name"></h3>');
-                if(result.dnd_uri === "") {
-                    $name.text(result.name);
-                }else {
-                    $('<a></a>').attr('href', result.dnd_uri).text(result.name).appendTo($name);
+                if(!(result.category_index in groups)) {
+                    groups[result.category_index] = [];
                 }
-                $li.append($name);
-                if(result.icon_str && result.icon_str.match("^https?://")) {
-                    $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
-                }
-                if(result.comment !== "") {
-                    $('<div class="search-result-desc"></div>').text(result.comment).appendTo($li);
-                }
-                $list.append($li);
+                groups[result.category_index].push(result);
             });
+            $.each(groups, function(i, group) {
+                groups_list.push(group);
+            });
+            return groups_list.sort(function(list_a, list_b) {
+                return list_a.length < list_b.length;
+            });
+        },
+        show: function(results) {
+            var self = this;
+            $(self.sel_num).text(results.length + " result" + (results.length > 1 ? "s" : ""));
+            var $results = $(self.sel);
+            $results.empty();
+            $.each(self._createCategoryGroups(results), function(i, group) {
+                var $results_list = $('<ul></ul>');
+                var $category = $('<h2 class="search-category"></h2>');
+                $category.text(group[0].category.name);
+                $('<span class="search-category-num"></span>')
+                    .text(group.length + (group.length > 1 ? " items" : " item")).appendTo($category);
+                $category.appendTo($results);
+                $.each(group, function(j, result) {
+                    var $li = $('<li class="search-result"></li>');
+                    var $name = $('<h3 class="search-result-name"></h3>');
+                    if(result.dnd_uri === "") {
+                        $name.text(result.name);
+                    }else {
+                        $('<a></a>').attr('href', result.dnd_uri).text(result.name).appendTo($name);
+                    }
+                    $li.append($name);
+                    if(result.icon_str && result.icon_str.match("^https?://")) {
+                        $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
+                    }
+                    if(result.comment !== "") {
+                        $('<div class="search-result-desc"></div>').text(result.comment).appendTo($li);
+                    }
+                    $li.appendTo($results_list);
+                });
+                $results_list.appendTo($results);
+            });
+            // $.each(results, function(i, result) {
+            //     if(result.name === "") return true;
+            //     var $li = $('<li class="search-result"></li>');
+            //     var $name = $('<h3 class="search-result-name"></h3>');
+            //     if(result.dnd_uri === "") {
+            //         $name.text(result.name);
+            //     }else {
+            //         $('<a></a>').attr('href', result.dnd_uri).text(result.name).appendTo($name);
+            //     }
+            //     $li.append($name);
+            //     if(result.icon_str && result.icon_str.match("^https?://")) {
+            //         $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
+            //     }
+            //     if(result.comment !== "") {
+            //         $('<div class="search-result-desc"></div>').text(result.comment).appendTo($li);
+            //     }
+            //     $results.append($li);
+            // });
         },
     };
     var lens_manager = {
