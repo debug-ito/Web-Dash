@@ -41,12 +41,22 @@ ul {
     margin: 0;
 }
 
-li {
+li, .search-result-hint, .search-result-error {
     padding: 3px 4px;
     margin: 3px;
     border-width: 0;
     border-radius: 3px;
     background-color: #f6f6f6;
+}
+
+.search-result-hint {
+    background-color: #dcffaf;
+    padding-left: 10px;
+}
+
+.search-result-error {
+    background-color: #ffafc2;
+    padding-left: 10px;
 }
 
 #lens-selector {
@@ -63,14 +73,15 @@ li {
     overflow: auto;
 }
 
-.search-result-hint {
-    background-color: #dcffaf;
-    padding-left: 10px;
+.search-category {
+    font-size: normal;
+    margin: 5px 0px;
 }
 
-.search-result-error {
-    background-color: #ffafc2;
-    padding-left: 10px;
+.search-category-num {
+    margin-left: 8px;
+    font-size: small;
+    font-weight: normal;
 }
 
 .search-result-name {
@@ -216,12 +227,12 @@ $(function() {
                 groups_list.push(group);
             });
             return groups_list.sort(function(list_a, list_b) {
-                return list_a.length < list_b.length;
+                return list_a.length > list_b.length;
             });
         },
         show: function(results) {
             var self = this;
-            $(self.sel_num).text(results.length + " result" + (results.length > 1 ? "s" : ""));
+            $(self.sel_num).text("total " + results.length + " result" + (results.length > 1 ? "s" : ""));
             var $results = $(self.sel);
             $results.empty();
             $.each(self._createCategoryGroups(results), function(i, group) {
@@ -229,7 +240,7 @@ $(function() {
                 var $category = $('<h2 class="search-category"></h2>');
                 $category.text(group[0].category.name);
                 $('<span class="search-category-num"></span>')
-                    .text(group.length + (group.length > 1 ? " items" : " item")).appendTo($category);
+                    .text(group.length + (group.length > 1 ? " results" : " result")).appendTo($category);
                 $category.appendTo($results);
                 $.each(group, function(j, result) {
                     var $li = $('<li class="search-result"></li>');
@@ -240,8 +251,8 @@ $(function() {
                         $('<a></a>').attr('href', result.dnd_uri).text(result.name).appendTo($name);
                     }
                     $li.append($name);
-                    if(result.icon_str && result.icon_str.match("^https?://")) {
-                        $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
+                    if(result.icon_hint && result.icon_hint.match("^https?://")) {
+                        $('<img />').attr('src', result.icon_hint).addClass('search-result-icon').appendTo($li);
                     }
                     if(result.comment !== "") {
                         $('<div class="search-result-desc"></div>').text(result.comment).appendTo($li);
