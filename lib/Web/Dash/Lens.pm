@@ -8,9 +8,20 @@ use Scalar::Util qw(weaken);
 use Net::DBus;
 use Net::DBus::Reactor;
 use Net::DBus::Annotation qw(dbus_call_noreply dbus_call_async);
+use Web::Dash::DeeModel;
 use Encode;
 use Async::Queue 0.02;
 use utf8;
+
+my %SCHEMA_RESULTS = (
+    0 => 'uri',
+    1 => 'icon_hint',
+    2 => 'category_index',
+    3 => 'mimetype',
+    4 => 'name',
+    5 => 'comment',
+    6 => 'dnd_uri'
+);
 
 sub new {
     my ($class, %args) = @_;
@@ -21,7 +32,7 @@ sub new {
         bus => undef,
         bus_address => undef,
         query_object => undef,
-        results_object_future => Future::Q->new,
+        results_model_future => Future::Q->new,
         search_hint_future => Future::Q->new,
         request_queue => undef,
     }, $class;
@@ -34,15 +45,15 @@ sub new {
         weaken (my $self = $self);
         my $sigid; $sigid = $self->{query_object}->connect_to_signal('Changed', sub {
             my ($result_arrayref) = @_;
-            my ($obj_name, $flag1, $flag2, $desc, $unknown,
+            my ($obj_name, $flag1, $flag2, $search_hint, $unknown,
                 $service_results, $service_global_results, $service_categories, $service_filters) = @$result_arrayref;
             $self->{query_object}->disconnect_from_signal('Changed', $sigid);
-            $self->{search_hint_future}->fulfill(Encode::decode('utf8', $desc));
-            my $object_results = _model_object_from_service($service_results);
-            $self->{results_object_future}->fulfill(
-                $self->{bus}->get_service($service_results)
-                    ->get_object($object_results, 'com.canonical.Dee.Model')
-            );
+            $self->{search_hint_future}->fulfill(Encode::decode('utf8', $search_hint));
+            $self->{results_model_future}->fulfill(Web::Dash::DeeModel->new(
+                bus => $self->{bus},
+                service_name => $service_results,
+                schema => \%SCHEMA_RESULTS,
+            ));
         });
     }
     $self->{query_object}->InfoRequest(dbus_call_noreply);
@@ -51,33 +62,6 @@ sub new {
 
 sub service_name { shift->{service_name} }
 sub object_name  { shift->{object_name} }
-
-sub _extract_valid_results {
-    my ($schema, $row_data) = @_;
-    my $field_num = int(@$schema);
-    return [] if !$field_num;
-    my @result = grep { @$_ == $field_num } @$row_data;
-    return \@result;
-}
-
-sub _result_array_to_hash {
-    my ($raw_result_array) = @_;
-    my %map = (
-        0 => 'uri',
-        1 => 'icon_hint',
-        2 => 'category_index',
-        3 => 'mimetype',
-        4 => 'name',
-        5 => 'comment',
-        6 => 'dnd_uri'
-    );
-    my $desired_size = int(keys %map);
-    my $size = @$raw_result_array;
-    croak "size of result array is $size, not $desired_size." if $size != $desired_size;
-    my $result_hash = +{ map { $map{$_} => Encode::decode('utf8', $raw_result_array->[$_]) } keys %map };
-    $result_hash->{category_index} += 0; ## numerify
-    return $result_hash;
-}
 
 sub _init_bus {
     my ($self, $bus_address) = @_;
@@ -96,13 +80,6 @@ sub _remove_delims {
     $str =~ s|^[^a-zA-Z0-9_\-\.\/]+||;
     $str =~ s|[^a-zA-Z0-9_\-\.\/]+$||;
     return $str;
-}
-
-sub _model_object_from_service {
-    my ($model_service_name) = @_;
-    my $name = $model_service_name;
-    $name =~ s|\.|/|g;
-    return "/com/canonical/dee/model/$name";
 }
 
 sub _init_service {
@@ -168,29 +145,20 @@ sub _init_queue {
         worker => sub {
             my ($task, $queue_done) = @_;
             my ($query_string, $final_future) = @$task;
-            $self->{results_object_future}->then(sub {
-                my ($results_object) = @_;
+            $self->{results_model_future}->then(sub {
                 my $search_method_future = Future::Q->new;
                 $self->{query_object}->Search(dbus_call_async, $query_string, {})->set_notify(sub {
-                    $search_method_future->fulfill($results_object, shift->get_result);
+                    $search_method_future->fulfill(shift->get_result);
                 });
                 return $search_method_future;
             })->then(sub {
-                my ($results_object, $search_result) = @_;
-                my $seqnum = $search_result->{'model-seqnum'};
-                my $clone_method_future = Future::Q->new;
-                $results_object->Clone(dbus_call_async)->set_notify(sub {
-                    $clone_method_future->fulfill($seqnum, shift->get_result);
-                });
-                return $clone_method_future;
+                my ($search_result) = @_;
+                my $exp_seqnum = $search_result->{'model-seqnum'};
+                my $results_model = $self->{results_model_future}->get;
+                return $results_model->get($exp_seqnum);
             })->then(sub {
-                my ($seqnum, $swarm_name, $schema, $row_data, $positions, $change_types, $seqnum_before_after) = @_;
-                my $result_seqnum = $seqnum_before_after->[1];
-                if($result_seqnum != $seqnum) {
-                    die "Your query is somehow lost.\n";
-                }
-                my $valid_results = [ map { _result_array_to_hash($_) } @{_extract_valid_results($schema, $row_data)} ];
-                $final_future->fulfill(@$valid_results);
+                my (@results) = @_;
+                $final_future->fulfill(@results);
                 $queue_done->();
             })->catch(sub {
                 $final_future->reject(@_);

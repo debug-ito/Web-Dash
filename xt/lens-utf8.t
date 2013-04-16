@@ -10,7 +10,7 @@ cmp_ok(int(@results), ">", 0, "some results obtained");
 
 my $find_tammatsu = 0;
 foreach my $result (@results) {
-    if($result->{description} =~ /端末/ || $result->{name} =~ /端末/) {
+    if($result->{comment} =~ /端末/ || $result->{name} =~ /端末/) {
         $find_tammatsu = 1;
         last;
     }
