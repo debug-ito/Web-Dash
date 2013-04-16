@@ -16,7 +16,7 @@ resources (
    #homepage   => 'http://yourwebsitehere.com',
    #IRC        => 'irc://irc.perl.org/#Web-Dash',
    license    => 'http://www.perlfoundation.org/artistic_license_2_0',
-   #repository => 'git://github.com/Toshio Ito/Web-Dash.git',
+   repository => 'git://github.com/debug-ito/Web-Dash.git',
    bugtracker => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=Web-Dash',
 );
 
@@ -40,9 +40,8 @@ requires (
     'File::Find' => 0,
     'Plack' => 0,
     'Plack::Request' => 0,
+    'Plack::Util' => 0,
     'Twiggy' => 0,
-    'Text::Xslate' => "1.6",
-    'File::Spec' => '3.3',
     'Try::Tiny' => 0,
     'Async::Queue' => '0.02',
 );

@@ -3,10 +3,9 @@ package Web::Dash;
 use strict;
 use warnings;
 use Plack::Request;
+use Plack::Util;
 use File::Find ();
 use Web::Dash::Lens;
-use Text::Xslate;
-use File::Spec;
 use Encode;
 use Future::Q 0.012;
 use AnyEvent::DBus 0.31;
@@ -15,7 +14,7 @@ use JSON qw(to_json);
 use Try::Tiny;
 use Carp;
 
-my $index_page = <<'EOD';
+my $index_page_template = <<'EOD';
 <!DOCTYPE html>
 <html>
   <head>
@@ -117,12 +116,7 @@ li, .search-result-hint, .search-result-error {
       <span id="results-num"></span>
     </div>
     <ul id="lens-selector">
-      [% FOREACH info in lens_info %]
-        <li><label>
-          <input type="radio" name="lens" value="[% info.name %]" data-lens-index="[% loop.index %]" />
-          [% info.hint %]
-        </label></li>
-      [% END ## FOREACH %]
+    [%LENSES_LIST%]
     </ul>
     <div id="results">
       <div class="search-result-hint">Hint: You can change lens with arrow Up and Down keys.</div>
@@ -384,16 +378,22 @@ $(function() {
 </html>
 EOD
 
+sub _render_lenses_info {
+    my ($lenses_info_ref) = @_;
+    return join "", map {
+        my $lens = $lenses_info_ref->[$_];
+        my $name = Plack::Util::encode_html($lens->{name});
+        my $hint = Plack::Util::encode_html($lens->{hint});
+        qq{<li><label><input type="radio" name="lens" value="$name" data-lens-index="$_" /></label>$hint</li>\n};
+    } 0 .. $#$lenses_info_ref;
+}
+
 sub new {
     my ($class, %args) = @_;
     my $self = bless {
         lenses => [],
         lens_for_service_name => {},
-        renderer => Text::Xslate->new(
-            path => [{index => $index_page}],
-            cache_dir => File::Spec->tmpdir,
-            syntax => 'TTerse',
-        ),
+        cache_index_page => undef,
     }, $class;
     if(defined $args{lenses}) {
         croak "lenses param must be an array-ref" if ref($args{lenses}) ne 'ARRAY';
@@ -438,17 +438,28 @@ sub _render_index {
     my ($self, $req) = @_;
     return sub {
         my ($responder) = @_;
+        if(defined $self->{cache_index_page}) {
+            $responder->([
+                200, ['Content-Type', 'text/html; charset=utf8'],
+                [$self->{cache_index_page}]
+            ]);
+            return;
+        }
         Future::Q->wait_all(map { $_->search_hint } @{$self->{lenses}})->then(sub {
             my (@search_hints) = map { $_->get } @_;
-            my @lens_info = map {
+            my @lenses_info = map {
                 my $hint = $search_hints[$_];
                 my $lens = $self->{lenses}[$_];
                 +{hint => $hint, name => $lens->service_name};
             } (0 .. $#search_hints);
-            my $page = $self->{renderer}->render("index", { lens_info => \@lens_info });
+            my $lenses_list = _render_lenses_info(\@lenses_info);
+            my $page = $index_page_template;
+            $page =~ s/\[%LENSES_LIST%\]/$lenses_list/;
+            $page = Encode::encode('utf8', $page);
+            $self->{cache_index_page} = $page;
             $responder->([
                 200, ['Content-Type', 'text/html; charset=utf8'],
-                [Encode::encode('utf8', $page)]
+                [$page]
             ]);
         })->catch(sub {
             my $error = shift;
@@ -525,6 +536,10 @@ sub to_app {
 
 
 our $VERSION = '0.01';
+
+1;
+
+__END__
 
 =pod
 
@@ -764,5 +779,3 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 =cut
-
-1; # End of Web::Dash
