@@ -226,6 +226,10 @@ sub category_sync {
 
 our $VERSION = '0.01';
 
+1;
+
+__END__
+
 =pod
 
 =head1 NAME
@@ -402,7 +406,7 @@ This URI takes a form that most applications can comprehend.
 
 In failure, this method throws an exception.
 
-See also: https://wiki.ubuntu.com/Unity/Lenses#Schema
+See also: L<https://wiki.ubuntu.com/Unity/Lenses#Schema>
 
 
 =head2 $future = $lens->search($query_string)
@@ -487,7 +491,3 @@ Returns the clone of the C<$lens>.
 Toshio Ito C<< <toshioito [at] cpan.org> >>
 
 =cut
-
-
-
-1;

@@ -407,15 +407,30 @@ sub _render_search {
         my $responder = shift;
         my $lens_name = $req->query_parameters->{lens} || 0;
         my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
+        my $lens = $self->{lens_for_service_name}{$lens_name};
         Future::Q->try(sub {
-            my $lens = $self->{lens_for_service_name}{$lens_name};
             if(not defined $lens) {
                 die "Unknown lens name: $lens_name\n";
             }
             return $lens->search($query_string);
         })->then(sub {
             my @results = @_;
-            $responder->(_json_response({error => undef, results => \@results}), 200);
+            if(@results) {
+                return Future::Q->needs_all(map { $lens->category($_->{category_index}) } @results)->then(sub {
+                    my (@categories) = @_;
+                    foreach my $i (0 .. $#categories) {
+                        $results[$i]{category} = $categories[$i];
+                    }
+                    return @results;
+                })->catch(sub {
+                    my $e = shift;
+                    warn "WARN: $e";
+                    return @results;
+                });
+            }
+            return @results;
+        })->then(sub {
+            $responder->(_json_response({error => undef, results => \@_}), 200);
         })->catch(sub {
             my $e = shift;
             $responder->(_json_response({error => $e}, 500));
