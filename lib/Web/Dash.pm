@@ -119,7 +119,7 @@ li, .search-result-hint, .search-result-error {
     <ul id="lens-selector">
       [% FOREACH info in lens_info %]
         <li><label>
-          <input type="radio" name="lens" value="[% info.name %]" />
+          <input type="radio" name="lens" value="[% info.name %]" data-lens-index="[% loop.index %]" />
           [% info.hint %]
         </label></li>
       [% END ## FOREACH %]
@@ -372,7 +372,7 @@ $(function() {
         }
     });
     $('#lens-selector').on('click', 'input', function(e) {
-        lens_manager.setLensIndex($(this).val());
+        lens_manager.setLensIndex($(this).data('lens-index'));
     });
     $('#results').on('click', '.search-result-list-toggler', function(e) {
         results_manager.toggleListLimit($(this).parent());
