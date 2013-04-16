@@ -73,12 +73,17 @@ li, .search-result-hint, .search-result-error {
     overflow: auto;
 }
 
+.search-result-list-limited {
+    overflow: auto;
+    max-height: 200px;
+}
+
 .search-category {
     font-size: normal;
     margin: 5px 0px;
 }
 
-.search-category-num {
+.search-category-num, .search-result-list-toggler {
     margin-left: 8px;
     font-size: small;
     font-weight: normal;
@@ -205,6 +210,7 @@ $(function() {
     var spinner = new SimpleSpinner('#spinner');
     
     var results_manager = {
+        LIMIT_THRESHOLD_ITEM_NUM: 5,
         sel: '#results',
         sel_num: '#results-num',
         showError: function(error) {
@@ -230,17 +236,39 @@ $(function() {
                 return list_a.length > list_b.length;
             });
         },
+        _setListLimit: function($category_header, is_limited) {
+            var $category_list = $category_header.next("ul");
+            var $toggler = $category_header.find(".search-result-list-toggler");
+            if($toggler.size() === 0) return;
+            if(is_limited) {
+                // toggle to limited
+                $category_list.addClass("search-result-list-limited");
+                $toggler.text("Show more");
+            }else {
+                // toggle to unlimited
+                $category_list.removeClass("search-result-list-limited");
+                $toggler.text("Show less");
+            }
+        },
+        toggleListLimit: function($category_header) {
+            this._setListLimit($category_header,
+                               !$category_header.next("ul").hasClass("search-result-list-limited"));
+        },
         show: function(results) {
             var self = this;
-            $(self.sel_num).text("total " + results.length + " result" + (results.length > 1 ? "s" : ""));
             var $results = $(self.sel);
+            var category_group_list = self._createCategoryGroups(results)
+            $(self.sel_num).text("total " + results.length + " result" + (results.length > 1 ? "s" : ""));
             $results.empty();
-            $.each(self._createCategoryGroups(results), function(i, group) {
+            $.each(category_group_list, function(group_index, group) {
                 var $results_list = $('<ul></ul>');
                 var $category = $('<h2 class="search-category"></h2>');
                 $category.text(group[0].category.name);
                 $('<span class="search-category-num"></span>')
                     .text(group.length + (group.length > 1 ? " results" : " result")).appendTo($category);
+                if(group.length > self.LIMIT_THRESHOLD_ITEM_NUM) {
+                    $('<a class="search-result-list-toggler" href="#"></a>').appendTo($category);
+                }
                 $category.appendTo($results);
                 $.each(group, function(j, result) {
                     var $li = $('<li class="search-result"></li>');
@@ -260,25 +288,8 @@ $(function() {
                     $li.appendTo($results_list);
                 });
                 $results_list.appendTo($results);
+                self._setListLimit($category, (group_index !== category_group_list.length - 1));
             });
-            // $.each(results, function(i, result) {
-            //     if(result.name === "") return true;
-            //     var $li = $('<li class="search-result"></li>');
-            //     var $name = $('<h3 class="search-result-name"></h3>');
-            //     if(result.dnd_uri === "") {
-            //         $name.text(result.name);
-            //     }else {
-            //         $('<a></a>').attr('href', result.dnd_uri).text(result.name).appendTo($name);
-            //     }
-            //     $li.append($name);
-            //     if(result.icon_str && result.icon_str.match("^https?://")) {
-            //         $('<img />').attr('src', result.icon_str).addClass('search-result-icon').appendTo($li);
-            //     }
-            //     if(result.comment !== "") {
-            //         $('<div class="search-result-desc"></div>').text(result.comment).appendTo($li);
-            //     }
-            //     $results.append($li);
-            // });
         },
     };
     var lens_manager = {
@@ -362,6 +373,10 @@ $(function() {
     });
     $('#lens-selector').on('click', 'input', function(e) {
         lens_manager.setLensIndex($(this).val());
+    });
+    $('#results').on('click', '.search-result-list-toggler', function(e) {
+        results_manager.toggleListLimit($(this).parent());
+        return false;
     });
 });
     </script>
