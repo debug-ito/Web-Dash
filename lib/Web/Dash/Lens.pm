@@ -23,6 +23,12 @@ my %SCHEMA_RESULTS = (
     6 => 'dnd_uri'
 );
 
+my %SCHEMA_CATEGORIES = (
+    0 => 'name',
+    1 => 'icon_hint',
+    2 => 'renderer',
+);
+
 sub new {
     my ($class, %args) = @_;
     my $self = bless {
@@ -34,6 +40,7 @@ sub new {
         query_object => undef,
         results_model_future => Future::Q->new,
         search_hint_future => Future::Q->new,
+        categories_future => Future::Q->new,
         request_queue => undef,
     }, $class;
     $self->_init_queue($args{concurrency});
@@ -54,6 +61,16 @@ sub new {
                 service_name => $service_results,
                 schema => \%SCHEMA_RESULTS,
             ));
+            my $categories_model = Web::Dash::DeeModel->new(
+                bus => $self->{bus},
+                service_name => $service_categories,
+                schema => \%SCHEMA_CATEGORIES,
+            );
+            $categories_model->get()->then(sub {
+                $self->{categories_future}->fulfill(@_) if defined $self;
+            }, sub {
+                $self->{categories_future}->reject(@_) if defined $self;
+            });
         });
     }
     $self->{query_object}->InfoRequest(dbus_call_noreply);
@@ -109,19 +126,18 @@ sub _init_service {
 
 sub _wait_on {
     my ($self, $future) = @_;
-    if($future->is_ready) {
-        return $future->get;
-    }
     my @result;
     my $exception;
+    my $is_immediate = 1;
     $future->then(sub {
         @result = @_;
-        $self->{reactor}->shutdown;
+        $self->{reactor}->shutdown if !$is_immediate;
     }, sub {
         $exception = shift;
-        $self->{reactor}->shutdown;
+        $self->{reactor}->shutdown if !$is_immediate;
     });
-    $self->{reactor}->run;
+    $is_immediate = 0;
+    $self->{reactor}->run if $future->is_pending;
     die $exception if defined $exception;
     return @result;
 }
@@ -189,6 +205,23 @@ sub clone {
         bus_address => $self->{bus_address},
         concurrency => $self->{request_queue}->concurrency,
     );
+}
+
+sub category {
+    my ($self, $category_index) = @_;
+    return $self->{categories_future}->then(sub {
+        my @categories = @_;
+        if(not defined $categories[$category_index]) {
+            die "Invalid category_index: $category_index\n";
+        }
+        return $categories[$category_index];
+    });
+}
+
+sub category_sync {
+    my ($self, $category_index) = @_;
+    my ($result) = $self->_wait_on($self->category($category_index));
+    return $result;
 }
 
 our $VERSION = '0.01';
