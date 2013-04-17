@@ -2,9 +2,9 @@ package Web::Dash::DeeModel;
 use strict;
 use warnings;
 use Carp;
-use Net::DBus::Annotation qw(dbus_call_noreply dbus_call_async);
 use Future::Q;
 use Scalar::Util qw(looks_like_number);
+use Web::Dash::Util qw(future_dbus_call);
 use Encode ();
 
 sub new {
@@ -58,13 +58,7 @@ sub _row_to_hashref {
 
 sub get {
     my ($self, $exp_seqnum) = @_;
-    return Future::Q->try(sub {
-        my $next_future = Future::Q->new;
-        $self->{dbus_obj}->Clone(dbus_call_async)->set_notify(sub {
-            $next_future->fulfill(shift->get_result);
-        });
-        return $next_future;
-    })->then(sub {
+    return future_dbus_call($self->{dbus_obj}, "Clone")->then(sub {
         my ($swarm_name, $row_schema, $row_data, $positions, $change_types, $seqnum_before_after) = @_;
         if(defined($exp_seqnum)) {
             my $result_seqnum = $seqnum_before_after->[1];

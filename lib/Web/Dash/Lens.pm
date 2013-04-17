@@ -7,8 +7,9 @@ use Future::Q 0.012;
 use Scalar::Util qw(weaken);
 use Net::DBus;
 use Net::DBus::Reactor;
-use Net::DBus::Annotation qw(dbus_call_noreply dbus_call_async);
+use Net::DBus::Annotation qw(dbus_call_noreply);
 use Web::Dash::DeeModel;
+use Web::Dash::Util qw(future_dbus_call);
 use Encode;
 use Async::Queue 0.02;
 use utf8;
@@ -162,11 +163,7 @@ sub _init_queue {
             my ($task, $queue_done) = @_;
             my ($query_string, $final_future) = @$task;
             $self->{results_model_future}->then(sub {
-                my $search_method_future = Future::Q->new;
-                $self->{query_object}->Search(dbus_call_async, $query_string, {})->set_notify(sub {
-                    $search_method_future->fulfill(shift->get_result);
-                });
-                return $search_method_future;
+                return future_dbus_call($self->{query_object}, "Search", $query_string, {});
             })->then(sub {
                 my ($search_result) = @_;
                 my $exp_seqnum = $search_result->{'model-seqnum'};
