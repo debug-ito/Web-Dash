@@ -384,7 +384,7 @@ sub _render_lenses_info {
         my $lens = $lenses_info_ref->[$_];
         my $name = Plack::Util::encode_html($lens->{name});
         my $hint = Plack::Util::encode_html($lens->{hint});
-        qq{<li><label><input type="radio" name="lens" value="$name" data-lens-index="$_" /></label>$hint</li>\n};
+        qq{<li><label><input type="radio" name="lens" value="$name" data-lens-index="$_" />$hint</label></li>\n};
     } 0 .. $#$lenses_info_ref;
 }
 
