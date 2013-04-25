@@ -555,7 +555,7 @@ which is employed by Ubuntu Linux.
 
 For detail of Unity, See L<https://wiki.ubuntu.com/Unity>
 
-(Hopefully) L<Web::Dash> acts like Unity Dash without the need of the whole Unity infrastructure.
+L<Web::Dash> acts like Unity Dash without the need of the whole Unity infrastructure.
 All you need is some Lenses (searching agents) and your favorite Web browser,
 and you can have the awesome searching power of Dash.
 
@@ -565,7 +565,7 @@ and you can have the awesome searching power of Dash.
 
 L<Web::Dash> is quite an B<experimental> application.
 
-It is not at all based on any official specification or documentation about Unity Dash or Unity Lens.
+It is not based on any official specification or documentation about Unity Dash or Unity Lens.
 Instead, I analyzed the behavior of Unity Dash and Unity Lenses from outside,
 and implemented what I guess was the correct usage of them.
 
@@ -575,28 +575,13 @@ It is also possible for L<Web::Dash> to stop working in future versions of Unity
 
 =head2 Privacy issues
 
-If you use L<Web::Dash> to share the Lenses with other people,
-you must be aware that it may have some privacy issues.
-
-=over
-
-=item *
-
-Since the Lens processes cache search results,
-you can see other people's search results through the cache.
-
-=item *
-
 Some Lenses are meant to search the local file system.
 If you export those lenses to others, they are able to
 see names of your files.
 
-=back
-
-
 =head1 SCREENSHOTS
 
-
+TODO: screenshots.
 
 =head1 TUTORIAL
 
@@ -652,19 +637,21 @@ In a non-GUI environment, first you need to execute the following.
 
     $ eval `dbus-launch --auto-syntax`
 
-This will launch a DBus daemon for the session bus,
+This will launch a DBus daemon for a session bus,
 and set the environment variables necessary to access the bus.
 
 After that, run C<webdash> as usual.
 
     $ webdash
 
-TODO: comment on "LANG" environment.
+If you run C<webdash> at startup (e.g., in /etc/rc.local),
+B<< make sure to specify C<LANG> environment variable. >>
+Lens processes need the C<LANG> environment variable to be set.
 
 
 =head1 WEB API
 
-TODO: describe Web API spec.
+L<Web::Dash> has a Web API for searching. See L<Web::Dash::WebAPI>.
 
 
 =head1 AS A MODULE
