@@ -8,8 +8,6 @@ use File::Find ();
 use Web::Dash::Lens;
 use Encode;
 use Future::Q 0.012;
-use AnyEvent::DBus 0.31;
-use AnyEvent;
 use JSON qw(to_json);
 use Try::Tiny;
 use Carp;
@@ -406,12 +404,9 @@ sub new {
         ## ** Wait for all the lenses to respond and recreate them.
         ## ** This is because lenses can be unstable at first.
         ## ** See xt/spawning-lens.t for detail.
-        my $cv = AnyEvent->condvar;
         foreach my $lens (@{$self->{lenses}}) {
-            $cv->begin;
-            $lens->search_hint->then(sub { $cv->end })
+            $lens->search_hint_sync();
         }
-        $cv->recv;
         $self->_recreate_lenses();
         %{$self->{lens_for_service_name}} = map { $_->service_name => $_ } @{$self->{lenses}};
     }
@@ -436,38 +431,34 @@ sub _recreate_lenses {
 
 sub _render_index {
     my ($self, $req) = @_;
-    return sub {
-        my ($responder) = @_;
-        if(defined $self->{cache_index_page}) {
-            $responder->([
-                200, ['Content-Type', 'text/html; charset=utf8'],
-                [$self->{cache_index_page}]
-            ]);
-            return;
-        }
-        Future::Q->wait_all(map { $_->search_hint } @{$self->{lenses}})->then(sub {
-            my (@search_hints) = map { $_->get } @_;
-            my @lenses_info = map {
-                my $hint = $search_hints[$_];
-                my $lens = $self->{lenses}[$_];
-                +{hint => $hint, name => $lens->service_name};
-            } (0 .. $#search_hints);
-            my $lenses_list = _render_lenses_info(\@lenses_info);
-            my $page = $index_page_template;
-            $page =~ s/\[%LENSES_LIST%\]/$lenses_list/;
-            $page = Encode::encode('utf8', $page);
-            $self->{cache_index_page} = $page;
-            $responder->([
-                200, ['Content-Type', 'text/html; charset=utf8'],
-                [$page]
-            ]);
-        })->catch(sub {
-            my $error = shift;
-            $responder->([
-                500, ['Content-Type', 'text/plain'],
-                [Encode::encode('utf8', $error)]
-            ]);
-        });
+    if(defined $self->{cache_index_page}) {
+        return [
+            200, ['Content-Type', 'text/html; charset=utf8'],
+            [$self->{cache_index_page}]
+        ];
+    }
+    return try {
+        my (@search_hints) = map { $_->search_hint_sync() } @{$self->{lenses}};
+        my @lenses_info = map {
+            my $hint = $search_hints[$_];
+            my $lens = $self->{lenses}[$_];
+            +{hint => $hint, name => $lens->service_name};
+        } (0 .. $#search_hints);
+        my $lenses_list = _render_lenses_info(\@lenses_info);
+        my $page = $index_page_template;
+        $page =~ s/\[%LENSES_LIST%\]/$lenses_list/;
+        $page = Encode::encode('utf8', $page);
+        $self->{cache_index_page} = $page;
+        return [
+            200, ['Content-Type', 'text/html; charset=utf8'],
+            [$page]
+        ];
+    }catch {
+        my $error = shift;
+        return [
+            500, ['Content-Type', 'text/plain'],
+            [Encode::encode('utf8', $error)]
+        ];
     };
 }
 
@@ -484,38 +475,29 @@ sub _json_response {
 
 sub _render_search {
     my ($self, $req) = @_;
-    return sub {
-        my $responder = shift;
-        my $lens_name = $req->query_parameters->{lens} || 0;
-        my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
-        my $lens = $self->{lens_for_service_name}{$lens_name};
-        Future::Q->try(sub {
-            if(not defined $lens) {
-                die "Unknown lens name: $lens_name\n";
-            }
-            return $lens->search($query_string);
-        })->then(sub {
-            my @results = @_;
-            if(@results) {
-                return Future::Q->needs_all(map { $lens->category($_->{category_index}) } @results)->then(sub {
-                    my (@categories) = @_;
-                    foreach my $i (0 .. $#categories) {
-                        $results[$i]{category} = $categories[$i];
-                    }
-                    return @results;
-                })->catch(sub {
-                    my $e = shift;
-                    warn "WARN: $e";
-                    return @results;
-                });
-            }
-            return @results;
-        })->then(sub {
-            $responder->(_json_response({error => undef, results => \@_}), 200);
-        })->catch(sub {
-            my $e = shift;
-            $responder->(_json_response({error => $e}, 500));
-        });
+    my $lens_name = $req->query_parameters->{lens} || 0;
+    my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
+    my $lens = $self->{lens_for_service_name}{$lens_name};
+    return try {
+        if(not defined $lens) {
+            die "Unknown lens name: $lens_name\n";
+        }
+        my @results = $lens->search_sync($query_string);
+        if(@results) {
+            try {
+                my (@categories) = map { $lens->category_sync($_->{category_index}) } @results;
+                foreach my $i (0 .. $#categories) {
+                    $results[$i]{category} = $categories[$i];
+                }
+            }catch {
+                my $e = shift;
+                warn "WARN: $e";
+            };
+        }
+        return _json_response({error => undef, results => \@results}, 200);
+    }catch {
+        my $e = shift;
+        return _json_response({error => "$e"}, 500);
     };
 }
 
