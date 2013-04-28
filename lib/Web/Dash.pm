@@ -386,80 +386,82 @@ sub _render_lenses_info {
     } 0 .. $#$lenses_info_ref;
 }
 
+sub _render_index_page {
+    my (@lenses) = @_;
+    my (@search_hints) = map { $_->search_hint_sync() } @lenses;
+    my @lenses_info = map {
+        my $hint = $search_hints[$_];
+        my $lens = $lenses[$_];
+        +{hint => $hint, name => $lens->service_name};
+    } (0 .. $#search_hints);
+    my $lenses_list = _render_lenses_info(\@lenses_info);
+    my $page = $index_page_template;
+    $page =~ s/\[%LENSES_LIST%\]/$lenses_list/;
+    return Encode::encode('utf8', $page);
+}
+
 sub new {
     my ($class, %args) = @_;
     my $self = bless {
-        lenses => [],
-        lens_for_service_name => {},
-        cache_index_page => undef,
+        ## lenses => [],
+        ## lens_for_service_name => {},
+        lens_info_for => {},
+        index_page => undef,
     }, $class;
+    my @lenses = ();
     if(defined $args{lenses}) {
         croak "lenses param must be an array-ref" if ref($args{lenses}) ne 'ARRAY';
-        $self->{lenses} = $args{lenses};
+        ## $self->{lenses} = $args{lenses};
+        @lenses = @{$args{lenses}};
     }else {
-        $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
+        ## $self->_init_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
+        @lenses = _create_lenses(defined($args{lenses_dir}) ? $args{lenses_dir} : '/usr/share/unity/lenses');
+    }
+    $self->{index_page} = _render_index_page(@lenses);
+    foreach my $lens (@lenses) {
+        $self->{lens_info_for}{$lens->service_name} = {
+            service_name => $lens->service_name,
+            object_name => $lens->object_name
+        };
     }
 
-    if(@{$self->{lenses}}) {
-        ## ** Wait for all the lenses to respond and recreate them.
-        ## ** This is because lenses can be unstable at first.
-        ## ** See xt/spawning-lens.t for detail.
-        foreach my $lens (@{$self->{lenses}}) {
-            $lens->search_hint_sync();
-        }
-        $self->_recreate_lenses();
-        %{$self->{lens_for_service_name}} = map { $_->service_name => $_ } @{$self->{lenses}};
-    }
+    ## if(@{$self->{lenses}}) {
+    ##     ## ** Wait for all the lenses to respond and recreate them.
+    ##     ## ** This is because lenses can be unstable at first.
+    ##     ## ** See xt/spawning-lens.t for detail.
+    ##     foreach my $lens (@{$self->{lenses}}) {
+    ##         $lens->search_hint_sync();
+    ##     }
+    ##     $self->_recreate_lenses();
+    ##     %{$self->{lens_for_service_name}} = map { $_->service_name => $_ } @{$self->{lenses}};
+    ## }
     
     return $self;
 }
 
-sub _init_lenses {
-    my ($self, @search_dirs) = @_;
+sub _create_lenses {
+    my (@search_dirs) = @_;
+    my @lenses = ();
     File::Find::find(sub {
         my $filepath = $File::Find::name;
         return if $filepath !~ /\.lens$/;
-        push(@{$self->{lenses}}, Web::Dash::Lens->new(lens_file => $filepath));
+        push(@lenses, Web::Dash::Lens->new(lens_file => $filepath));
     }, @search_dirs);
+    return @lenses;
 }
 
-sub _recreate_lenses {
-    my ($self) = @_;
-    my @new_lenses = map { $_->clone } @{$self->{lenses}};
-    $self->{lenses} = \@new_lenses;
-}
+## sub _recreate_lenses {
+##     my ($self) = @_;
+##     my @new_lenses = map { $_->clone } @{$self->{lenses}};
+##     $self->{lenses} = \@new_lenses;
+## }
 
 sub _render_index {
     my ($self, $req) = @_;
-    if(defined $self->{cache_index_page}) {
-        return [
-            200, ['Content-Type', 'text/html; charset=utf8'],
-            [$self->{cache_index_page}]
-        ];
-    }
-    return try {
-        my (@search_hints) = map { $_->search_hint_sync() } @{$self->{lenses}};
-        my @lenses_info = map {
-            my $hint = $search_hints[$_];
-            my $lens = $self->{lenses}[$_];
-            +{hint => $hint, name => $lens->service_name};
-        } (0 .. $#search_hints);
-        my $lenses_list = _render_lenses_info(\@lenses_info);
-        my $page = $index_page_template;
-        $page =~ s/\[%LENSES_LIST%\]/$lenses_list/;
-        $page = Encode::encode('utf8', $page);
-        $self->{cache_index_page} = $page;
-        return [
-            200, ['Content-Type', 'text/html; charset=utf8'],
-            [$page]
-        ];
-    }catch {
-        my $error = shift;
-        return [
-            500, ['Content-Type', 'text/plain'],
-            [Encode::encode('utf8', $error)]
-        ];
-    };
+    return [
+        200, ['Content-Type', 'text/html; charset=utf8'],
+        [$self->{index_page}]
+    ];
 }
 
 sub _json_response {
@@ -477,11 +479,15 @@ sub _render_search {
     my ($self, $req) = @_;
     my $lens_name = $req->query_parameters->{lens} || 0;
     my $query_string = Encode::decode('utf8', scalar($req->query_parameters->{'q'}) || '');
-    my $lens = $self->{lens_for_service_name}{$lens_name};
+    my $lens_info = $self->{lens_info_for}{$lens_name};
     return try {
-        if(not defined $lens) {
+        if(not defined $lens_info) {
             die "Unknown lens name: $lens_name\n";
         }
+        my $lens = Web::Dash::Lens->new(
+            service_name => $lens_info->{service_name},
+            object_name  => $lens_info->{object_name},
+        );
         my @results = $lens->search_sync($query_string);
         if(@results) {
             try {
