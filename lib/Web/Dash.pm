@@ -713,6 +713,9 @@ If this option is specified, C<lenses_dir> option is ignored.
 
 Creates a L<PSGI> application from the C<$dash>.
 
+Note that the PSGI application uses L<AnyEvent> for asynchronous responses.
+Use L<AnyEvent>-compatible PSGI servers (like L<Twiggy>) to run the app.
+
 =head1 SEE ALSO
 
 =over
