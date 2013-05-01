@@ -58,8 +58,30 @@ sub _row_to_hashref {
 
 sub get {
     my ($self, $exp_seqnum) = @_;
+
+    ## --- Get current value of the Dee Model
+    ##     By calling "Clone" method on a Dee Model object, we can obtain
+    ##     current value of the Dee Model object.
+    
+    ##     Alternatively, we can listen on "Commit" signal to keep track of
+    ##     changes made on the Dee Model. That way, we can collect every value
+    ##     the Model has ever had. However, here we use "Clone" method to obtain
+    ##     the Model's value for ease of implementation.
+    
     return future_dbus_call($self->{dbus_obj}, "Clone")->then(sub {
         my ($swarm_name, $row_schema, $row_data, $positions, $change_types, $seqnum_before_after) = @_;
+        ## -- Obtain the raw data, convert it into a list of hash-refs
+        ##    Dee Model's data model is similar to spreadsheets or RDB.
+        ##    $row_schema is an array of strings, each of which indicates the data
+        ##    type of the column. The string format is in DBus-way, I guess.
+        ##    $row_data is an array of arrays, each of which represents a data row.
+        ##    A data row may be empty, which I guess is some kind of placeholder from
+        ##    the previous state of the Model. Otherwise, a data row has the same
+        ##    number of data as the $row_schema.
+        ##    $seqnum_before_after is an array with two elements. Its first element
+        ##    is the previous sequence number of the Model and the second element
+        ##    is the current sequence number.
+        
         if(defined($exp_seqnum)) {
             my $result_seqnum = $seqnum_before_after->[1];
             if($result_seqnum != $exp_seqnum) {
@@ -70,6 +92,7 @@ sub get {
     });
 }
 
+our $VERSION = "0.02";
 
 1;
 
@@ -80,6 +103,10 @@ __END__
 =head1 NAME
 
 Web::Dash::DeeModel - remote Dee Model object
+
+=head1 VERSION
+
+0.02
 
 =head1 DESCRIPTION
 

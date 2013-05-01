@@ -47,21 +47,54 @@ sub new {
     $self->_init_queue($args{concurrency});
     $self->_init_bus(defined $args{bus_address} ? $args{bus_address} : ':session');
     $self->_init_service(@args{qw(lens_file service_name object_name)});
+
+    ## --- Procedure to connect to remote Lens service
+
+    ## 1. Get hold of query_object
+    ##    query_object is the main entry point to the Lens service in DBus.
+    ##    Its service name and object name are normally obtained from .lens file.
+    ##    query_object implements com.canonical.Unity.Lens interface.
+    
     $self->{query_object} =
         $self->{bus}->get_service($self->{service_name})->get_object($self->{object_name}, 'com.canonical.Unity.Lens');
     {
-        weaken (my $self = $self);
+        ## 2. Fetch Lens meta information
+        ##    We then have to obtain meta information about the lens.
+        ##    query_object broadcasts such information by "Changed" signal,
+        ##    so we listen to it here. "Changed" signal is emitted when
+        ##    "InfoRequest" method is called on the query_object.
+        
+        weaken (my $self = $self);  ## prevent memory leak
         my $sigid; $sigid = $self->{query_object}->connect_to_signal('Changed', sub {
             my ($result_arrayref) = @_;
             my ($obj_name, $flag1, $flag2, $search_hint, $unknown,
                 $service_results, $service_global_results, $service_categories, $service_filters) = @$result_arrayref;
+
+            ## 4. Obtain search_hint and some Dee Model objects
+            ##    "Changed" signal conveys a number of values. I'm not able to
+            ##    figure out all of their meanings. The forth value ($search_hint)
+            ##    is a short description of the Lens.
+
+            ##    The last four values are DBus service names for Dee Model objects.
+            ##    Lenses use these objects to export various data to DBus. Such data
+            ##    include search results and categories of the results. A Dee Model
+            ##    object's DBus object name is determined from the service name.
+            ##    A Dee Model object is represented by Web::Dash::DeeModel class here.
+            
             $self->{query_object}->disconnect_from_signal('Changed', $sigid);
             $self->{search_hint_future}->fulfill(Encode::decode('utf8', $search_hint));
+
+            ##    Results Model exports Search results. We will use the Model object
+            ##    later when searching.
             $self->{results_model_future}->fulfill(Web::Dash::DeeModel->new(
                 bus => $self->{bus},
                 service_name => $service_results,
                 schema => \%SCHEMA_RESULTS,
             ));
+
+            ##    Categories Model exports meta information about categories
+            ##    of search results. Here we cache the category information,
+            ##    and throw away the Model object.
             my $categories_model = Web::Dash::DeeModel->new(
                 bus => $self->{bus},
                 service_name => $service_categories,
@@ -74,6 +107,8 @@ sub new {
             });
         });
     }
+    
+    ## 3. call "InfoRequest" method to make "Changed" signal fire.
     $self->{query_object}->InfoRequest(dbus_call_noreply);
     return $self;
 }
@@ -156,15 +191,32 @@ sub search_hint_sync {
 
 sub _init_queue {
     my ($self, $concurrency) = @_;
-    weaken $self;
+
+    ## --- Procedure of searching
+    ##     Concurrency of this procedure is regulated by Async::Queue.
+    
+    weaken $self;  ## prevent memory leak
     $self->{request_queue} = Async::Queue->new(
         concurrency => $concurrency,
         worker => sub {
             my ($task, $queue_done) = @_;
             my ($query_string, $final_future) = @$task;
             $self->{results_model_future}->then(sub {
+                ## 1. Call "Search" method on query_object with search query.
+
                 return future_dbus_call($self->{query_object}, "Search", $query_string, {});
             })->then(sub {
+                ## 2. Obtain search results from Results Model object
+                ##    The return value of "Search" method is NOT search results.
+                ##    It contains a sequence number pointing to a state of the
+                ##    Results Model object. We then obtain search results from the
+                ##    Results Model object. However, the current sequence number of
+                ##    the Results Model may be different from the one got from
+                ##    query_object. That is possible when multiple processes are
+                ##    making search queries concurrently. If that happens, the
+                ##    obtained search result is discarded because it is not for
+                ##    the query we made.
+
                 my ($search_result) = @_;
                 my $exp_seqnum = $search_result->{'model-seqnum'};
                 my $results_model = $self->{results_model_future}->get;
@@ -221,7 +273,7 @@ sub category_sync {
     return $result;
 }
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 1;
 
@@ -235,7 +287,7 @@ Web::Dash::Lens - An experimental Unity Lens object
 
 =head1 VERSION
 
-0.01
+0.02
 
 =head1 SYNOPSIS
 
@@ -482,6 +534,12 @@ Returns the DBus object name of the C<$lens>.
 =head2 $new_lens = $lens->clone
 
 Returns the clone of the C<$lens>.
+
+=head1 IMPLEMENTATION
+
+For how L<Web::Dash::Lens> communicates with a Lens process via DBus,
+read the source code of L<Web::Dash::Lens> and L<Web::Dash::DeeModel>.
+I left some comments there.
 
 =head1 AUTHOR
 
