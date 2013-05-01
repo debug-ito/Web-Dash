@@ -10,7 +10,8 @@ lib/Web/Dash/Util.pm
 lib/Web/Dash/WebAPI.pod
 MANIFEST			This list of files
 MANIFEST.SKIP
-README
+README.pod
+t/00-load.t
 t/bus.t
 t/dash.t
 xt/category.t

@@ -35,7 +35,10 @@ my $builder = Module::Build->new(
     add_to_cleanup      => [ 'Web-Dash-*' ],
     recursive_test_files => 1,
     ## create_makefile_pl => 'traditional',
-    no_index    => { 'directory' => [ 'eg', 'inc', 't', 'xt' ] },
+    no_index    => {
+        'directory' => [ 'eg', 'inc', 't', 'xt' ],
+        'file' => ['README.pod'],
+    },
     meta_add => {
         resources => {
             repository => 'git://github.com/debug-ito/Web-Dash.git',
