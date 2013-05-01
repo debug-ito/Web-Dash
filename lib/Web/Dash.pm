@@ -581,7 +581,7 @@ see names of your files.
 
 =head1 SCREENSHOTS
 
-TODO: screenshots.
+See L<https://github.com/debug-ito/Web-Dash/wiki/Screenshots>
 
 =head1 TUTORIAL
 
