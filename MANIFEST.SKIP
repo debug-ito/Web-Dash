@@ -1,0 +1,7 @@
+^MYMETA
+^blib
+^_build
+^Build$
+^.gitignore
+^.git
+^memo.rest
