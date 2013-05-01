@@ -720,6 +720,10 @@ Use L<AnyEvent>-compatible PSGI servers (like L<Twiggy>) to run the app.
 
 =over
 
+=item L<webdash>
+
+Web::Dash daemon runner script.
+
 =item L<Web::Dash::Lens>
 
 An experimental Unity Lens object.
