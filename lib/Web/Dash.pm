@@ -726,6 +726,9 @@ An experimental Unity Lens object.
 
 =back
 
+=head1 AUTHOR
+
+Toshio Ito C<< <toshioito [at] cpan.org> >>
 
 =head1 LICENSE AND COPYRIGHT
 
