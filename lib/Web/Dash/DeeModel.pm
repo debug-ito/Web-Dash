@@ -92,7 +92,7 @@ sub get {
     });
 }
 
-our $VERSION = "0.02";
+our $VERSION = "0.031";
 
 1;
 
@@ -106,7 +106,7 @@ Web::Dash::DeeModel - remote Dee Model object
 
 =head1 VERSION
 
-0.02
+0.031
 
 =head1 DESCRIPTION
 

@@ -1,6 +1,6 @@
 Revision history for Web-Dash
 
-0.03    2013/05/05
+0.031   2013/05/05
         Fix packaging error: JSON was not included in "requires".
 
 0.02    2013/05/01
