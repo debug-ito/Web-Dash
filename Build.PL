@@ -31,6 +31,7 @@ my $builder = Module::Build->new(
         'Async::Queue' => '0.02',
         'Getopt::Long' => 0,
         'Pod::Usage' => 0,
+        'JSON' => 0,
     },
     add_to_cleanup      => [ 'Web-Dash-*' ],
     recursive_test_files => 1,
