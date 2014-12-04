@@ -734,6 +734,10 @@ An experimental Unity Lens object.
 
 Toshio Ito C<< <toshioito [at] cpan.org> >>
 
+=head1 REPOSITORY
+
+L<https://github.com/debug-ito/Web-Dash>
+
 =head1 LICENSE AND COPYRIGHT
 
 Copyright 2013 Toshio Ito.
