@@ -535,7 +535,7 @@ sub to_app {
 }
 
 
-our $VERSION = '0.031';
+our $VERSION = '0.032';
 
 1;
 
@@ -733,6 +733,10 @@ An experimental Unity Lens object.
 =head1 AUTHOR
 
 Toshio Ito C<< <toshioito [at] cpan.org> >>
+
+=head1 REPOSITORY
+
+L<https://github.com/debug-ito/Web-Dash>
 
 =head1 LICENSE AND COPYRIGHT
 

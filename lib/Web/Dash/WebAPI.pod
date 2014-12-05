@@ -1,4 +1,6 @@
 
+=encoding UTF8
+
 =head1 NAME
 
 Web::Dash::WebAPI - Web API for Web::Dash
