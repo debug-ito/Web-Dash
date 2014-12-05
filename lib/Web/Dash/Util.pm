@@ -7,6 +7,8 @@ use Net::DBus::Annotation qw(dbus_call_async);
 use Try::Tiny;
 use Exporter qw(import);
 
+our $VERSION = "0.041";
+
 our @EXPORT_OK = qw(future_dbus_call);
 
 sub future_dbus_call {
