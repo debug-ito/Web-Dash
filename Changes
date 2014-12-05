@@ -1,5 +1,9 @@
 Revision history for Perl module Web::Dash
 
+0.041   2014-12-05 TOSHIOITO
+        - No change to the code.
+        - Set consistent version numbers.
+
 0.04    2014-12-05 TOSHIOITO
         - No change to the code.
         - Fixed pod error - added UTF-8 encoding (NEILB ++)
